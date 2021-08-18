@@ -11,7 +11,7 @@ mod types;
 
 use std::rc::Rc;
 use types::MalValue::MalList;
-use types::{MalError, MalResult, MalValue};
+use types::{MalError, MalResult, MalValue, func};
 
 fn read(input: String) -> Result<Option<MalValue>, MalError> {
     return reader::Reader::read_str(input.to_string());
@@ -89,6 +89,13 @@ fn eval(mut ast: MalValue, mut env: Rc<env::Environment>) -> MalResult {
                             continue 'tco;
                         }
                         return Ok(MalValue::MalNil);
+                    }
+                    MalValue::MalSymbol(ref s) if s == "eval" => {
+                        ast = eval(list[1].clone(), env.clone())?;
+                        while let Some(ref e) = env.clone().outer {
+                            env = e.clone();
+                        }
+                        continue 'tco
                     }
                     _ => match eval_ast(ast.clone(), env.clone())? {
                         MalList(list) => match list[0] {
@@ -218,6 +225,7 @@ fn main() {
         "(def! sum2 (fn* (n acc) (if (= n 0) acc (sum2 (- n 1) (+ n acc)))))".to_string(),
         &env,
     );
+    rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))".to_string(), &env);
 
     loop {
         let readline = rl.readline("user> ");

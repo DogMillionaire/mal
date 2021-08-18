@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct Environment {
     data: RefCell<HashMap<String, MalValue>>,
-    outer: Option<Rc<Environment>>,
+    pub outer: Option<Rc<Environment>>,
 }
 
 impl Environment {

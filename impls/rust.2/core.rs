@@ -4,6 +4,7 @@ use super::types::MalValue::{MalBool, MalInteger};
 use super::types::{bool, func, MalError, MalResult, MalValue};
 use std::convert::TryInto;
 use std::rc::Rc;
+use std::io::Read;
 
 fn to_int(value: MalValue) -> Result<i32, MalError> {
     match value {
@@ -189,6 +190,21 @@ pub fn ns() -> Vec<(&'static str, MalValue)> {
                 if let MalValue::MalString(s) = v[0].clone() {
                     let stripped = s.strip_prefix('"').unwrap().strip_suffix('"').unwrap();
                     return Ok(Reader::read_str(stripped.to_string())?.unwrap_or(MalValue::MalNil));
+                }
+                Err(MalError::EvalError(String::from(
+                    "read-string called with non-string argument",
+                )))
+            }),
+        ),
+        (
+            "slurp",
+            func(|v| {
+                if let MalValue::MalString(f) = v[0].clone() {
+                    let mut s = String::new();
+                    match std::fs::File::open(f).and_then(|mut f| f.read_to_string(&mut s)) {
+                        Ok(_) => return Ok(MalValue::MalString(s)),
+                        Err(e) => return Err(MalError::EvalError(e.to_string())),
+                    }
                 }
                 Err(MalError::EvalError(String::from(
                     "read-string called with non-string argument",
