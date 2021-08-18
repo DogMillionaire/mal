@@ -1,4 +1,5 @@
 use super::printer::pr_str;
+use super::reader::Reader;
 use super::types::MalValue::{MalBool, MalInteger};
 use super::types::{bool, func, MalError, MalResult, MalValue};
 use std::convert::TryInto;
@@ -181,6 +182,18 @@ pub fn ns() -> Vec<(&'static str, MalValue)> {
         (
             "println",
             func(|v| print_vals(v, false, " ".to_string(), true)),
+        ),
+        (
+            "read-string",
+            func(|v| {
+                if let MalValue::MalString(s) = v[0].clone() {
+                    let stripped = s.strip_prefix('"').unwrap().strip_suffix('"').unwrap();
+                    return Ok(Reader::read_str(stripped.to_string())?.unwrap_or(MalValue::MalNil));
+                }
+                Err(MalError::EvalError(String::from(
+                    "read-string called with non-string argument",
+                )))
+            }),
         ),
     ]
 }
