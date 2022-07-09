@@ -8,25 +8,25 @@ use crate::printer::Printer;
 use crate::reader::Reader;
 use crate::types::MalType;
 
-fn READ(input: String) -> Result<MalType, MalError> {
+fn read(input: String) -> Result<MalType, MalError> {
     let mut reader = Reader::read_str(input)?;
     let result = reader.read_form();
     //eprintln!("Read reult: {:?}", result);
     result
 }
 
-fn EVAL(input: MalType) -> MalType {
+fn eval(input: MalType) -> MalType {
     input
 }
 
-fn PRINT(input: MalType) -> String {
+fn print(input: MalType) -> String {
     Printer::pr_str(input)
 }
 
 fn rep(input: String) -> Result<String, MalError> {
-    let read_result = READ(input)?;
-    let eval_result = EVAL(read_result);
-    Ok(PRINT(eval_result))
+    let read_result = read(input)?;
+    let eval_result = eval(read_result);
+    Ok(print(eval_result))
 }
 
 fn main() {

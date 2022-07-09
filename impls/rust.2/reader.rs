@@ -39,7 +39,7 @@ impl Display for MalError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
-    TildeAmpersand,
+    SpliceUnquote,
     OpenSquare,
     OpenParen,
     OpenBrace,
@@ -47,11 +47,11 @@ pub enum Token {
     CloseParen,
     CloseBrace,
     Keyword(String),
-    Quote(String),
-    BackQuote,
-    Tilde,
-    AtSign,
-    Carrot,
+    Quote,
+    QuasiQuote,
+    Unquote,
+    Deref,
+    WithMeta,
     Plus,
     Minus,
     String(String),
@@ -156,9 +156,9 @@ impl Reader {
                 '~' => {
                     if chars[idx + 1] == '@' {
                         idx += 1;
-                        Token::TildeAmpersand
+                        Token::SpliceUnquote
                     } else {
-                        Token::Tilde
+                        Token::Unquote
                     }
                 }
                 ' ' | '\t' | ',' => {
@@ -172,15 +172,10 @@ impl Reader {
                 ']' => Token::CloseSquare,
                 '{' => Token::OpenBrace,
                 '}' => Token::CloseBrace,
-                '\'' => {
-                    let (end, string) =
-                        Self::read_until(&chars, idx, &|current, _| current == '\n', false)?;
-                    idx = end;
-                    Token::Quote(string)
-                }
-                '`' => Token::BackQuote,
-                '@' => Token::AtSign,
-                '^' => Token::Carrot,
+                '\'' => Token::Quote,
+                '`' => Token::QuasiQuote,
+                '@' => Token::Deref,
+                '^' => Token::WithMeta,
                 '"' => {
                     let (end, string) = Self::read_string(&chars, idx + 1)?;
                     idx = end;
@@ -299,6 +294,12 @@ impl Reader {
             Token::OpenParen => self.read_list(),
             &Token::OpenSquare => self.read_vector(),
             &Token::OpenBrace => self.read_hashmap(),
+            Token::Quote => self.read_macro("quote".to_string()),
+            Token::QuasiQuote => self.read_macro("quasiquote".to_string()),
+            Token::Unquote => self.read_macro("unquote".to_string()),
+            Token::SpliceUnquote => self.read_macro("splice-unquote".to_string()),
+            Token::Deref => self.read_macro("deref".to_string()),
+            Token::WithMeta => self.read_macro("with-meta".to_string()),
             Token::Keyword(name) => {
                 let result = MalType::Keyword(name.to_string());
                 self.next();
@@ -306,6 +307,16 @@ impl Reader {
             }
             _ => self.read_atom(),
         }
+    }
+
+    fn read_macro(&mut self, symbol: String) -> Result<MalType, MalError> {
+        let mut types: Vec<MalType> = vec![];
+
+        types.push(MalType::Symbol(symbol));
+        self.next();
+        types.push(self.read_form()?);
+
+        Ok(MalType::List(types))
     }
 
     fn read_hashmap(&mut self) -> Result<MalType, MalError> {
@@ -464,6 +475,19 @@ mod tests {
 
         assert_matches!(result, MalType::Keyword(k) => {
             assert_eq!("kw", k);
+        });
+    }
+
+    #[test]
+    fn parse_quote() {
+        let mut reader = Reader::read_str("'1".to_string()).unwrap();
+
+        let result = reader.read_form().unwrap();
+
+        assert_matches!(result, MalType::List(l) => {
+            assert_eq!(2, l.len());
+            assert_matches!(l[0], MalType::Symbol(_));
+            assert_matches!(l[1], MalType::Number(1));
         });
     }
 

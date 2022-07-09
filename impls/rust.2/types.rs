@@ -1,7 +1,4 @@
-use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
-    hash::Hasher,
-};
+use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum MalType {
