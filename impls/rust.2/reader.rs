@@ -10,6 +10,8 @@ pub enum MalError {
     UnterminatedList,
     InvalidNumber(String, usize),
     UnbalancedHashmap,
+    SymbolNotFound(String),
+    InvalidType,
 }
 
 impl Display for MalError {
@@ -33,6 +35,8 @@ impl Display for MalError {
             MalError::UnbalancedHashmap => {
                 write!(f, "Number of keys and values does not match for hashmap")
             }
+            MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
+            MalError::InvalidType => write!(f, "Invalid type"),
         }
     }
 }
