@@ -1,33 +1,37 @@
-use std::{char, fmt::Display};
+use std::{char, collections::HashMap, fmt::Display};
 
 use crate::types::MalType;
 
 const DEBUG: bool = false;
 
 #[derive(Debug)]
-pub enum TokenizeError {
+pub enum MalError {
     UnterminatedToken(char, usize, usize),
     UnterminatedList,
     InvalidNumber(String, usize),
+    UnbalancedHashmap,
 }
 
-impl Display for TokenizeError {
+impl Display for MalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TokenizeError::UnterminatedToken(char, start, end) => write!(
+            MalError::UnterminatedToken(char, start, end) => write!(
                 f,
                 "end of input found while looking for token '{}' start: {}, end: {}",
                 char, start, end
             ),
-            TokenizeError::InvalidNumber(number, location) => {
+            MalError::InvalidNumber(number, location) => {
                 write!(
                     f,
                     "Failed to parse number '{}' at location {}",
                     number, location
                 )
             }
-            TokenizeError::UnterminatedList => {
+            MalError::UnterminatedList => {
                 write!(f, "end of input found while looking for end of list")
+            }
+            MalError::UnbalancedHashmap => {
+                write!(f, "Number of keys and values does not match for hashmap")
             }
         }
     }
@@ -63,7 +67,7 @@ pub(crate) struct Reader {
 }
 
 impl Reader {
-    pub fn read_str(input: String) -> Result<Self, TokenizeError> {
+    pub fn read_str(input: String) -> Result<Self, MalError> {
         let tokens = Self::tokenize(&input);
         if DEBUG {
             eprintln!("{:#?}", tokens);
@@ -84,9 +88,9 @@ impl Reader {
         }
     }
 
-    fn read_string(chars: &Vec<char>, start: usize) -> Result<(usize, String), TokenizeError> {
+    fn read_string(chars: &Vec<char>, start: usize) -> Result<(usize, String), MalError> {
         if start >= chars.len() {
-            return Err(TokenizeError::UnterminatedToken('"', start - 1, start));
+            return Err(MalError::UnterminatedToken('"', start - 1, start));
         }
 
         let mut end = start;
@@ -131,12 +135,12 @@ impl Reader {
         }
 
         if !end_found {
-            return Err(TokenizeError::UnterminatedToken('"', start - 1, end));
+            return Err(MalError::UnterminatedToken('"', start - 1, end));
         }
         Ok((end, result))
     }
 
-    fn tokenize(input: &String) -> Result<Vec<Token>, TokenizeError> {
+    fn tokenize(input: &String) -> Result<Vec<Token>, MalError> {
         let mut tokens: Vec<Token> = vec![];
 
         let mut idx = 0;
@@ -197,7 +201,7 @@ impl Reader {
 
                         Token::Number(match string.parse::<isize>() {
                             Ok(it) => it,
-                            Err(_) => return Err(TokenizeError::InvalidNumber(string, idx)),
+                            Err(_) => return Err(MalError::InvalidNumber(string, idx)),
                         })
                     // Dash at the start of an atom
                     } else if (idx < chars.len() - 1) && !chars[idx + 1].is_ascii_whitespace() {
@@ -216,7 +220,7 @@ impl Reader {
 
                     Token::Number(match string.parse::<isize>() {
                         Ok(it) => it,
-                        Err(_) => return Err(TokenizeError::InvalidNumber(string, idx)),
+                        Err(_) => return Err(MalError::InvalidNumber(string, idx)),
                     })
                 }
                 '\\' => {
@@ -252,11 +256,11 @@ impl Reader {
         start: usize,
         is_end: &dyn Fn(char, char) -> bool,
         must_find_end: bool,
-    ) -> Result<(usize, String), TokenizeError> {
+    ) -> Result<(usize, String), MalError> {
         let mut idx = start;
 
         if idx >= chars.len() {
-            return Err(TokenizeError::UnterminatedToken(
+            return Err(MalError::UnterminatedToken(
                 chars[start - 1],
                 start - 1,
                 idx,
@@ -276,7 +280,7 @@ impl Reader {
         }
 
         if !found_end && must_find_end {
-            return Err(TokenizeError::UnterminatedToken(chars[start], start, idx));
+            return Err(MalError::UnterminatedToken(chars[start], start, idx));
         }
 
         let mut result = String::with_capacity(idx - start);
@@ -286,7 +290,7 @@ impl Reader {
         Ok((idx, result))
     }
 
-    pub fn read_form(&mut self) -> Result<MalType, TokenizeError> {
+    pub fn read_form(&mut self) -> Result<MalType, MalError> {
         let next_token = self.peek();
         if DEBUG {
             eprintln!("read_form: {:?}", next_token);
@@ -294,6 +298,7 @@ impl Reader {
         match next_token {
             Token::OpenParen => self.read_list(),
             &Token::OpenSquare => self.read_vector(),
+            &Token::OpenBrace => self.read_hashmap(),
             Token::Keyword(name) => {
                 let result = MalType::Keyword(name.to_string());
                 self.next();
@@ -303,7 +308,23 @@ impl Reader {
         }
     }
 
-    fn read_atom(&mut self) -> Result<MalType, TokenizeError> {
+    fn read_hashmap(&mut self) -> Result<MalType, MalError> {
+        let tokens = self.read_token_list(&Token::OpenBrace, &Token::CloseBrace)?;
+
+        let mut hashmap: HashMap<MalType, MalType> = HashMap::new();
+
+        if tokens.len() % 2 != 0 {
+            return Err(MalError::UnbalancedHashmap);
+        }
+
+        for chunk in tokens.chunks_exact(2) {
+            hashmap.insert(chunk[0].clone(), chunk[1].clone());
+        }
+
+        Ok(MalType::Hashmap(hashmap))
+    }
+
+    fn read_atom(&mut self) -> Result<MalType, MalError> {
         match self.next() {
             Token::String(s) => Ok(MalType::String(s.to_string())),
             Token::Atom(s) => Ok(MalType::Symbol(s.to_string())),
@@ -314,14 +335,14 @@ impl Reader {
         }
     }
 
-    fn read_vector(&mut self) -> Result<MalType, TokenizeError> {
+    fn read_vector(&mut self) -> Result<MalType, MalError> {
         Ok(MalType::Vector(self.read_token_list(
             &&Token::OpenSquare,
             &Token::CloseSquare,
         )?))
     }
 
-    fn read_list(&mut self) -> Result<MalType, TokenizeError> {
+    fn read_list(&mut self) -> Result<MalType, MalError> {
         Ok(MalType::List(
             self.read_token_list(&Token::OpenParen, &Token::CloseParen)?,
         ))
@@ -331,7 +352,7 @@ impl Reader {
         &mut self,
         start_token: &Token,
         end_token: &Token,
-    ) -> Result<Vec<MalType>, TokenizeError> {
+    ) -> Result<Vec<MalType>, MalError> {
         let mut tokens: Vec<MalType> = vec![];
         // Skip the open OpenParen
         assert_eq!(start_token, self.next());
@@ -341,7 +362,7 @@ impl Reader {
             }
             match self.peek() {
                 Token::EndOfFile => {
-                    return Err(TokenizeError::UnterminatedList);
+                    return Err(MalError::UnterminatedList);
                 }
                 token => {
                     if token == end_token {

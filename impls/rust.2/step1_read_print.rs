@@ -2,13 +2,13 @@ mod printer;
 mod reader;
 mod types;
 
-use reader::TokenizeError;
+use reader::MalError;
 
 use crate::printer::Printer;
 use crate::reader::Reader;
 use crate::types::MalType;
 
-fn READ(input: String) -> Result<MalType, TokenizeError> {
+fn READ(input: String) -> Result<MalType, MalError> {
     let mut reader = Reader::read_str(input)?;
     let result = reader.read_form();
     //eprintln!("Read reult: {:?}", result);
@@ -23,7 +23,7 @@ fn PRINT(input: MalType) -> String {
     Printer::pr_str(input)
 }
 
-fn rep(input: String) -> Result<String, TokenizeError> {
+fn rep(input: String) -> Result<String, MalError> {
     let read_result = READ(input)?;
     let eval_result = EVAL(read_result);
     Ok(PRINT(eval_result))

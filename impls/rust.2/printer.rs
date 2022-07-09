@@ -20,6 +20,10 @@ impl Display for MalType {
                 f.write_str(&format!("[{}]", values.join(" ")))
             }
             MalType::Keyword(kw) => f.write_str(&format!(":{}", kw)),
+            MalType::Hashmap(h) => {
+                let values: Vec<_> = h.iter().map(|v| format!("{} {}", v.0, v.1)).collect();
+                f.write_str(&format!("{{{}}}", values.join(" ")))
+            }
         }
     }
 }
