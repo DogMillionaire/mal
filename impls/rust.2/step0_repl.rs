@@ -1,47 +1,37 @@
-extern crate rustyline;
+#![allow(non_snake_case)]
 
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
-
-fn read(input: String) -> String {
-    return input;
+fn READ(input: &str) -> &str {
+    input
 }
 
-fn eval(input: String) -> String {
-    return input;
+fn EVAL(input: &str) -> &str {
+    input
 }
 
-fn print(input: String) -> String {
-    return input;
+fn PRINT(input: &str) -> &str {
+    input
 }
 
-fn rep(input: String) -> String {
-    let a = read(input);
-    let b = eval(a);
-    let result = print(b);
-
-    return result;
+fn rep(input: &str) -> &str {
+    let read_result = READ(input);
+    let eval_result = EVAL(read_result);
+    PRINT(eval_result)
 }
 
 fn main() {
-    let mut rl = Editor::<()>::new();
-    if rl.load_history(".mal-history").is_err() {
-        println!("No previous history.");
-    }
-
+    let mut rl = rustyline::Editor::<()>::new();
+    let _result = rl.load_history(" history.txt");
     loop {
         let readline = rl.readline("user> ");
+
         match readline {
-            Ok(line) => {
-                rl.add_history_entry(line.as_str());
-                println!("{}", rep(line));
+            Ok(input) => {
+                let result = rep(&input);
+                println!("{}", result);
+                rl.add_history_entry(input);
             }
-            Err(ReadlineError::Interrupted) => break,
-            Err(ReadlineError::Eof) => break,
-            Err(err) => {
-                println!("Error: {:?}", err);
-                break;
-            }
+            Err(_) => break,
         }
     }
+    rl.save_history("history.txt").unwrap();
 }
