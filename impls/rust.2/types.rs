@@ -12,6 +12,15 @@ pub enum MalType {
     Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
 }
 
+impl From<MalType> for isize {
+    fn from(mal_type: MalType) -> Self {
+        match mal_type {
+            MalType::Number(n) => n,
+            t => panic!("Can't convert {:?} into an isize", t),
+        }
+    }
+}
+
 impl Eq for MalType {
     fn assert_receiver_is_total_eq(&self) {}
 }
@@ -42,7 +51,7 @@ impl PartialEq for MalType {
             (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
-            (Self::Func(l0, l1), Self::Func(r0, r1)) => l0 == r0,
+            (Self::Func(l0, _), Self::Func(r0, _)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -59,7 +68,7 @@ impl std::fmt::Debug for MalType {
             Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
-            Self::Func(arg0, arg1) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
         }
     }
 }
