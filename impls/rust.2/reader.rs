@@ -3,13 +3,16 @@ use std::{char, collections::HashMap, fmt::Display};
 use crate::types::MalType;
 
 const DEBUG: bool = false;
-
-#[derive(Debug)]
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub enum MalError {
     UnterminatedToken(char, usize, usize),
     UnterminatedList,
     InvalidNumber(String, usize),
     UnbalancedHashmap,
+    SymbolNotFound(String),
+    InvalidType,
+    ParseError(String),
 }
 
 impl Display for MalError {
@@ -33,6 +36,9 @@ impl Display for MalError {
             MalError::UnbalancedHashmap => {
                 write!(f, "Number of keys and values does not match for hashmap")
             }
+            MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
+            MalError::InvalidType => write!(f, "Invalid type"),
+            MalError::ParseError(msg) => write!(f, "Parse error: {}", msg),
         }
     }
 }
@@ -52,8 +58,6 @@ pub enum Token {
     Unquote,
     Deref,
     WithMeta,
-    Plus,
-    Minus,
     String(String),
     Atom(String),
     Number(isize),
@@ -187,15 +191,19 @@ impl Reader {
                     idx = end;
                     continue;
                 }
-                '+' => Token::Plus,
+                '/' => Token::Atom("/".to_string()),
+                '*' => Token::Atom("*".to_string()),
+                '+' => Token::Atom("+".to_string()),
                 '-' => {
                     // Negative number
                     if (idx < chars.len() - 1) && chars[idx + 1].is_ascii_digit() {
-                        let (_, string) =
-                            Self::read_until(&chars, idx, &|c, _| !c.is_ascii_digit(), false)?;
+                        let (end, string) =
+                            Self::read_until(&chars, idx + 1, &|c, _| !c.is_ascii_digit(), false)?;
+
+                        idx = end;
 
                         Token::Number(match string.parse::<isize>() {
-                            Ok(it) => it,
+                            Ok(it) => -it,
                             Err(_) => return Err(MalError::InvalidNumber(string, idx)),
                         })
                     // Dash at the start of an atom
@@ -206,12 +214,14 @@ impl Reader {
                         idx = end - 1;
                         Token::Atom(string)
                     } else {
-                        Token::Minus
+                        Token::Atom("-".to_string())
                     }
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                    let (_, string) =
+                    let (end, string) =
                         Self::read_until(&chars, idx, &|c, _| !c.is_ascii_digit(), false)?;
+
+                    idx = end - 1;
 
                     Token::Number(match string.parse::<isize>() {
                         Ok(it) => it,
@@ -223,8 +233,12 @@ impl Reader {
                     continue;
                 }
                 ':' => {
-                    let (end, string) =
-                        Self::read_until(&chars, idx + 1, &|c, _| Self::is_special_char(c), false)?;
+                    let (end, string) = Self::read_until(
+                        &chars,
+                        idx + 1,
+                        &|c, _| Self::is_special_char(c) || c.is_ascii_whitespace(),
+                        false,
+                    )?;
                     idx = end - 1;
                     Token::Keyword(string)
                 }
@@ -340,8 +354,6 @@ impl Reader {
             Token::String(s) => Ok(MalType::String(s.to_string())),
             Token::Atom(s) => Ok(MalType::Symbol(s.to_string())),
             Token::Number(n) => Ok(MalType::Number(*n)),
-            Token::Plus => Ok(MalType::Symbol("+".to_string())),
-            Token::Minus => Ok(MalType::Symbol("-".to_string())),
             _ => Ok(MalType::Nil),
         }
     }
