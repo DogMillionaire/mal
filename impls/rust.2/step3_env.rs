@@ -83,32 +83,23 @@ fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
                 return Ok(value);
             }
             MalType::Symbol(s) if s == "let*" => {
-                let clone_env = env.clone();
                 let new_env = Env::new(Some(env));
 
                 let bindings_list = Vec::<MalType>::from(l[1].clone());
 
                 let bindings = bindings_list.chunks_exact(2);
 
-                let mut keys: Vec<String> = Vec::with_capacity(bindings.len());
-                let mut new_values: Vec<MalType> = Vec::with_capacity(bindings.len());
-
                 for binding in bindings {
                     let key = binding[0].clone();
                     let value = eval(binding[1].clone(), new_env.clone())?;
 
-                    keys.push(String::from(key));
-                    new_values.push(value.clone());
-                }
-
-                {
-                    let mut mut_env = clone_env.borrow_mut();
-                    for (key, value) in keys.iter().zip(new_values.iter()) {
+                    {
+                        let mut mut_env = new_env.borrow_mut();
                         mut_env.set(key.to_string(), value.clone());
                     }
                 }
 
-                return eval(l[2].clone(), clone_env.clone());
+                return eval(l[2].clone(), new_env.clone());
             }
             MalType::Func(name, func) => {
                 debug!(format!(

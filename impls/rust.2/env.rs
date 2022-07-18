@@ -35,8 +35,9 @@ impl Env {
             Some(v) => Ok(v.clone()),
             None => {
                 if let Some(outer) = &self.outer {
-                    outer.borrow().get(key.to_string())?;
+                    return outer.borrow().get(key.to_string());
                 }
+                dbg!(&self.data);
                 Err(MalError::SymbolNotFound(key))
             }
         }
