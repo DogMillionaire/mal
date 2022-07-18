@@ -3,9 +3,9 @@ mod printer;
 mod reader;
 mod types;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::RwLock;
 
 use env::Env;
 use reader::MalError;
@@ -36,10 +36,10 @@ fn read(input: String) -> Result<MalType, MalError> {
     result
 }
 
-fn eval_ast(ast: MalType, env: Rc<RwLock<Env>>) -> Result<MalType, MalError> {
+fn eval_ast(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
     debug!(&ast);
     match ast {
-        MalType::Symbol(name) => env.read().unwrap().get(name),
+        MalType::Symbol(name) => env.borrow().get(name),
         MalType::List(list) => {
             let mut new_ast: Vec<MalType> = Vec::with_capacity(list.len());
             for value in list {
@@ -69,50 +69,78 @@ fn eval_ast(ast: MalType, env: Rc<RwLock<Env>>) -> Result<MalType, MalError> {
     }
 }
 
-fn call_func(ast: MalType) -> Result<MalType, MalError> {
+fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
+    debug!(&ast);
+
+    //eval_ast(ast, env.clone())?
+
     match ast.clone() {
-        MalType::List(l) => {
-            assert!(
-                l.len() >= 3,
-                "Expected eval_ast to retun a list with at least 3 elements"
-            );
-            match l[0].clone() {
-                MalType::Func(name, func) => {
-                    debug!(format!(
-                        "Executing func: {} with {:?} and {:?}",
-                        name,
-                        l[1].clone(),
-                        l[2].clone()
-                    ));
-                    return Ok(func.as_ref()(l[1].clone(), l[2].clone()));
-                }
-                MalType::Symbol(s) => match s.as_str() {
-                    "def!" => {}
-                    "let*" => {}
-                    _ => {}
-                },
+        MalType::List(l) => match l[0].clone() {
+            MalType::Symbol(s) if s == "def!" => {
+                let value = eval(l[2].clone(), env.clone())?;
+                env.borrow_mut()
+                    .set(String::from(l[1].clone()), value.clone());
+                return Ok(value);
             }
-            Err(MalError::ParseError(
-                "First list element was not a function!".to_string(),
-            ))
-        }
+            MalType::Symbol(s) if s == "let*" => {
+                let clone_env = env.clone();
+                let new_env = Env::new(Some(env));
+
+                let bindings_list = Vec::<MalType>::from(l[1].clone());
+
+                let bindings = bindings_list.chunks_exact(2);
+
+                let mut keys: Vec<String> = Vec::with_capacity(bindings.len());
+                let mut new_values: Vec<MalType> = Vec::with_capacity(bindings.len());
+
+                for binding in bindings {
+                    let key = binding[0].clone();
+                    let value = eval(binding[1].clone(), new_env.clone())?;
+
+                    keys.push(String::from(key));
+                    new_values.push(value.clone());
+                }
+
+                {
+                    let mut mut_env = clone_env.borrow_mut();
+                    for (key, value) in keys.iter().zip(new_values.iter()) {
+                        mut_env.set(key.to_string(), value.clone());
+                    }
+                }
+
+                return eval(l[2].clone(), clone_env.clone());
+            }
+            MalType::Func(name, func) => {
+                debug!(format!(
+                    "Executing func: {} with {:?} and {:?}",
+                    name,
+                    l[1].clone(),
+                    l[2].clone()
+                ));
+                return Ok(func.as_ref()(l[1].clone(), l[2].clone()));
+            }
+            _ => {
+                let func_ast = eval_ast(ast, env.clone())?;
+                return apply(func_ast, env.clone());
+            }
+        },
         _ => Err(MalError::ParseError(
             "eval_ast did not return a list!".to_string(),
         )),
     }
 }
 
-fn eval(ast: MalType, env: Rc<RwLock<Env>>) -> Result<MalType, MalError> {
+fn eval(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
     debug!(&ast);
     match ast.clone() {
         MalType::List(l) => {
             if l.is_empty() {
                 Ok(ast)
             } else {
-                call_func(eval_ast(ast, env)?)
+                apply(ast, env.clone())
             }
         }
-        _ => eval_ast(ast, env),
+        _ => eval_ast(ast, env.clone()),
     }
 }
 
@@ -120,15 +148,12 @@ fn print(input: MalType) -> String {
     Printer::pr_str(input)
 }
 
-fn add_func(env: Rc<RwLock<Env>>, name: String, value: NumericFn) {
-    env.write()
-        .unwrap()
+fn add_func(env: Rc<RefCell<Env>>, name: String, value: MalFn) {
+    env.borrow_mut()
         .set(name.clone(), MalType::Func(name.clone(), value))
 }
 
-fn rep(input: String) -> Result<String, MalError> {
-    let env = Rc::new(RwLock::new(Env::new(None)));
-
+fn rep(input: String, env: Rc<RefCell<Env>>) -> Result<String, MalError> {
     add_func(
         env.clone(),
         "+".to_string(),
@@ -155,17 +180,19 @@ fn rep(input: String) -> Result<String, MalError> {
     Ok(print(eval_result))
 }
 
-type NumericFn = Rc<dyn Fn(MalType, MalType) -> MalType>;
+type MalFn = Rc<dyn Fn(MalType, MalType) -> MalType>;
 
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
 
+    let env = Env::new(None);
+
     loop {
         let readline = rl.readline("user> ");
 
         match readline {
-            Ok(input) => match rep(input.clone()) {
+            Ok(input) => match rep(input.clone(), env.clone()) {
                 Ok(result) => {
                     println!("{}", result);
                     rl.add_history_entry(input);

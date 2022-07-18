@@ -12,11 +12,31 @@ pub enum MalType {
     Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
 }
 
+impl From<MalType> for String {
+    fn from(mal_type: MalType) -> Self {
+        match mal_type {
+            MalType::String(s) => s,
+            MalType::Symbol(sym) => sym,
+            t => panic!("Can't convert {:?} into a String", t),
+        }
+    }
+}
+
 impl From<MalType> for isize {
     fn from(mal_type: MalType) -> Self {
         match mal_type {
             MalType::Number(n) => n,
             t => panic!("Can't convert {:?} into an isize", t),
+        }
+    }
+}
+
+impl From<MalType> for Vec<MalType> {
+    fn from(mal_type: MalType) -> Self {
+        match mal_type {
+            MalType::List(l) => l,
+            MalType::Vector(v) => v,
+            t => panic!("Can't convert {:?} into an Vec<MalType>", t),
         }
     }
 }

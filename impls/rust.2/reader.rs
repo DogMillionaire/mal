@@ -243,8 +243,12 @@ impl Reader {
                     Token::Keyword(string)
                 }
                 _ => {
-                    let (end, string) =
-                        Self::read_until(&chars, idx, &|c, _| Self::is_special_char(c), false)?;
+                    let (end, string) = Self::read_until(
+                        &chars,
+                        idx,
+                        &|c, _| Self::is_special_char(c) || c.is_ascii_whitespace(),
+                        false,
+                    )?;
                     idx = end - 1;
                     Token::Atom(string)
                 }
@@ -500,6 +504,20 @@ mod tests {
             assert_eq!(2, l.len());
             assert_matches!(l[0], MalType::Symbol(_));
             assert_matches!(l[1], MalType::Number(1));
+        });
+    }
+
+    #[test]
+    fn parse_def_call() {
+        let mut reader = Reader::read_str("(def! x 3)".to_string()).unwrap();
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result, MalType::List(l) => {
+            assert_eq!(3, l.len(), "List should have 3 elements");
+            assert_matches!(l[0], MalType::Symbol(_));
+            assert_matches!(l[1], MalType::Symbol(_));
+            assert_matches!(l[2], MalType::Number(_));
         });
     }
 
