@@ -83,7 +83,7 @@ fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
                 return Ok(value);
             }
             MalType::Symbol(s) if s == "let*" => {
-                let new_env = Env::new(Some(env));
+                let new_env = Env::new(None, None, Some(env));
 
                 let bindings_list = Vec::<MalType>::from(l[1].clone());
 
@@ -100,6 +100,45 @@ fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
                 }
 
                 return eval(l[2].clone(), new_env.clone());
+            }
+            MalType::Symbol(s) if s == "if" => {
+                let condition = l[1].clone();
+
+                let c_value = eval(condition, env.clone())?;
+
+                match c_value {
+                    MalType::Nil | MalType::False => {
+                        if l.len() < 4 {
+                            return Ok(MalType::Nil);
+                        }
+                        let false_value = l[3].clone();
+                        return eval(false_value, env.clone());
+                    }
+                    _ => {
+                        let true_value = l[2].clone();
+                        return eval(true_value, env.clone());
+                    }
+                }
+            }
+            // MalType::Symbol(s) if s == "fn*" => {
+            //     let func_parameters = l[1].clone();
+            //     let func_body = l[2].clone();
+            //     let func_parameters_values = l[3].clone();
+
+            //     let func_env = Env::new(
+            //         Some(func_parameters),
+            //         Some(func_parameters_values),
+            //         Some(env),
+            //     );
+
+            //     return eval(func_body, func_env);
+            // }
+            MalType::Symbol(s) if s == "do" => {
+                let mut value: MalType = MalType::Nil;
+                for i in 1..l.len() {
+                    value = eval_ast(l[i].clone(), env.clone())?;
+                }
+                return Ok(value);
             }
             MalType::Func(name, func) => {
                 debug!(format!(
@@ -177,7 +216,7 @@ fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
 
-    let env = Env::new(None);
+    let env = Env::new(None, None, None);
 
     loop {
         let readline = rl.readline("user> ");

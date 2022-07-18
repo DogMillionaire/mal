@@ -14,6 +14,8 @@ pub enum MalType {
     False,
 }
 
+pub type MalFunc = dyn Fn() -> MalType;
+
 impl From<MalType> for String {
     fn from(mal_type: MalType) -> Self {
         match mal_type {

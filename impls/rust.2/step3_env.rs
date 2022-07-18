@@ -83,7 +83,7 @@ fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
                 return Ok(value);
             }
             MalType::Symbol(s) if s == "let*" => {
-                let new_env = Env::new(Some(env));
+                let new_env = Env::new(None, None, Some(env));
 
                 let bindings_list = Vec::<MalType>::from(l[1].clone());
 
@@ -177,7 +177,7 @@ fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
 
-    let env = Env::new(None);
+    let env = Env::new(None, None, None);
 
     loop {
         let readline = rl.readline("user> ");

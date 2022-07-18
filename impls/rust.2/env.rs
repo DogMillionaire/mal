@@ -7,12 +7,32 @@ pub struct Env {
     data: HashMap<String, MalType>,
 }
 
+pub type MalEnv = Rc<RefCell<Env>>;
+
 impl Env {
-    pub fn new(outer: Option<Rc<RefCell<Env>>>) -> Rc<RefCell<Env>> {
-        Rc::new(RefCell::new(Env {
+    pub fn new(
+        bindings: Option<Vec<MalType>>,
+        exprs: Option<Vec<MalType>>,
+        outer: Option<MalEnv>,
+    ) -> MalEnv {
+        let mut env = Env {
             outer,
             data: HashMap::new(),
-        }))
+        };
+
+        match (bindings, exprs) {
+            (Some(b), Some(e)) => {
+                for (binding, expression) in b.iter().zip(e.iter()) {
+                    env.set(String::from(binding.clone()), expression.clone());
+                }
+            }
+            (None, Some(_)) | (Some(_), None) => {
+                panic!("Must pass both bindings and expressions");
+            }
+            (None, None) => { /*No-op*/ }
+        }
+
+        Rc::new(RefCell::new(env))
     }
 
     pub fn set(&mut self, key: String, value: MalType) {
