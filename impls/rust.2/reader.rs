@@ -13,6 +13,7 @@ pub enum MalError {
     SymbolNotFound(String),
     InvalidType,
     ParseError(String),
+    IncorrectParamCount(String, usize, usize),
 }
 
 impl Display for MalError {
@@ -39,6 +40,11 @@ impl Display for MalError {
             MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
             MalError::InvalidType => write!(f, "Invalid type"),
             MalError::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            MalError::IncorrectParamCount(name, expected, actual) => write!(
+                f,
+                "Function {} expected {} parameters, called with {} parameters",
+                name, expected, actual
+            ),
         }
     }
 }

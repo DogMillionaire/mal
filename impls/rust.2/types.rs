@@ -1,4 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use crate::env::Env;
+use crate::reader::MalError;
 
 pub enum MalType {
     Nil,
@@ -14,7 +17,100 @@ pub enum MalType {
     False,
 }
 
-pub type MalFunc = dyn Fn() -> MalType;
+pub struct MalFunc {
+    name: String,
+    parameters: Vec<MalType>,
+    body: Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>>,
+    env: Rc<RefCell<Env>>,
+}
+
+impl MalFunc {
+    pub fn new(
+        name: Option<String>,
+        parameters: Vec<MalType>,
+        body: Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>>,
+        env: Rc<RefCell<Env>>,
+    ) -> Self {
+        let name = name.unwrap_or(String::from("anonymous"));
+        Self {
+            name,
+            parameters,
+            body,
+            env,
+        }
+    }
+
+    pub fn execute(&self, param_values: Vec<MalType>) -> Result<MalType, MalError> {
+        if self.parameters.len() != param_values.len() {
+            return Err(MalError::IncorrectParamCount(
+                self.name.clone(),
+                self.parameters.len(),
+                param_values.len(),
+            ));
+        }
+
+        let exec_env = Env::new(
+            Some(self.parameters.clone()),
+            Some(param_values.clone()),
+            Some(self.env.clone()),
+        );
+
+        {
+            let mut mut_env = exec_env.borrow_mut();
+            for (param, value) in self.parameters.iter().zip(param_values.iter()) {
+                mut_env.set(String::from(param.clone()), value.clone());
+            }
+        }
+
+        self.body.as_ref()(exec_env.clone())
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
+impl MalType {
+    pub fn try_into_list(self) -> Result<Vec<MalType>, MalError> {
+        if let Self::List(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_symbol(self) -> Result<String, MalError> {
+        if let Self::Symbol(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_number(self) -> Result<isize, MalError> {
+        if let Self::Number(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_string(self) -> Result<String, MalError> {
+        if let Self::String(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_vector(self) -> Result<Vec<MalType>, MalError> {
+        if let Self::Vector(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+}
 
 impl From<MalType> for String {
     fn from(mal_type: MalType) -> Self {
