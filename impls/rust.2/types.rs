@@ -10,6 +10,8 @@ pub enum MalType {
     Keyword(String),
     Hashmap(HashMap<MalType, MalType>),
     Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
+    True,
+    False,
 }
 
 impl From<MalType> for String {
@@ -57,6 +59,8 @@ impl Clone for MalType {
             Self::Keyword(arg0) => Self::Keyword(arg0.clone()),
             Self::Hashmap(arg0) => Self::Hashmap(arg0.clone()),
             Self::Func(arg0, arg1) => Self::Func(arg0.clone(), arg1.clone()),
+            Self::True => Self::True,
+            Self::False => Self::False,
         }
     }
 }
@@ -89,6 +93,8 @@ impl std::fmt::Debug for MalType {
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
             Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::True => write!(f, "True"),
+            Self::False => write!(f, "False"),
         }
     }
 }
@@ -110,6 +116,8 @@ impl std::hash::Hash for MalType {
                 }
             }
             MalType::Func(name, _) => name.hash(state),
+            MalType::True => core::mem::discriminant(self).hash(state),
+            MalType::False => core::mem::discriminant(self).hash(state),
         }
     }
 }

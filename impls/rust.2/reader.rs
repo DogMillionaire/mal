@@ -356,6 +356,9 @@ impl Reader {
     fn read_atom(&mut self) -> Result<MalType, MalError> {
         match self.next() {
             Token::String(s) => Ok(MalType::String(s.to_string())),
+            Token::Atom(s) if s == "nil" => Ok(MalType::Nil),
+            Token::Atom(s) if s == "true" => Ok(MalType::True),
+            Token::Atom(s) if s == "false" => Ok(MalType::False),
             Token::Atom(s) => Ok(MalType::Symbol(s.to_string())),
             Token::Number(n) => Ok(MalType::Number(*n)),
             _ => Ok(MalType::Nil),
@@ -519,6 +522,33 @@ mod tests {
             assert_matches!(l[1], MalType::Symbol(_));
             assert_matches!(l[2], MalType::Number(_));
         });
+    }
+
+    #[test]
+    fn parse_nil() {
+        let mut reader = Reader::read_str("nil".to_string()).unwrap();
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result, MalType::Nil);
+    }
+
+    #[test]
+    fn parse_true() {
+        let mut reader = Reader::read_str("true".to_string()).unwrap();
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result, MalType::True);
+    }
+
+    #[test]
+    fn parse_false() {
+        let mut reader = Reader::read_str("false".to_string()).unwrap();
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result, MalType::False);
     }
 
     //
