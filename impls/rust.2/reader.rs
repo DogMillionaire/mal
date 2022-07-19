@@ -1,6 +1,7 @@
 use std::{char, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::types::MalType;
+use assert_matches::assert_matches;
 
 const DEBUG: bool = false;
 #[allow(dead_code)]
@@ -327,7 +328,29 @@ impl Reader {
             Token::Unquote => self.read_macro("unquote".to_string()),
             Token::SpliceUnquote => self.read_macro("splice-unquote".to_string()),
             Token::Deref => self.read_macro("deref".to_string()),
-            Token::WithMeta => self.read_macro("with-meta".to_string()),
+            Token::WithMeta => {
+                let mut types: Vec<Rc<MalType>> = vec![];
+
+                types.push(Rc::new(MalType::Symbol("with-meta".to_string())));
+                self.next();
+                let hashmap = self.read_form()?;
+                assert_matches!(
+                    hashmap.as_ref(),
+                    MalType::Hashmap(_),
+                    "First element after with-meta should be a hashmap"
+                );
+                let vector = self.read_form()?;
+
+                assert_matches!(
+                    vector.as_ref(),
+                    MalType::Vector(_),
+                    "First element after with-meta should be a vector"
+                );
+                types.push(vector);
+                types.push(hashmap);
+
+                Ok(Rc::new(MalType::List(types)))
+            }
             Token::Keyword(name) => {
                 let result = MalType::Keyword(name.to_string());
                 self.next();
@@ -559,6 +582,20 @@ mod tests {
         let result = reader.read_form().expect("Failed to parse");
 
         assert_matches!(result.as_ref(), &MalType::False);
+    }
+
+    #[test]
+    fn parse_with_meta() {
+        let mut reader = Reader::read_str(r#"^{"a" 1} [1 2 3]"#.to_string()).unwrap();
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result.as_ref(), MalType::List(l) => {
+            assert_eq!(3, l.len(), "List should have 3 elements");
+            assert_matches!(l[0].as_ref(), &MalType::Symbol(_), "First list element should be a symbol");
+            assert_matches!(l[1].as_ref(), &MalType::Vector(_), "First list element should be a vector");
+            assert_matches!(l[2].as_ref(), &MalType::Hashmap(_), "Second list element should be a hashmap");
+        });
     }
 
     //
