@@ -124,10 +124,31 @@ impl MalCore {
             let value = atom.try_into_atom()?;
             Ok(value.borrow().clone())
         });
-        Self::add_binary_func(env, "reset!", &|val1, val2| {
+        Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
             atom.replace(val2.clone());
             Ok(val2)
+        });
+
+        Self::add_binary_func(env.clone(), "cons", &|arg1, arg2| {
+            let list = arg2.try_into_list()?;
+
+            let mut new_list = Vec::with_capacity(list.len() + 1);
+            new_list.push(arg1);
+            list.iter().for_each(|v| new_list.push(v.clone()));
+
+            Ok(MalType::list(new_list))
+        });
+
+        Self::add_param_list_func(env.clone(), "concat", &|args| {
+            let mut new_list: Vec<Rc<MalType>> = Vec::new();
+
+            for arg in args {
+                let list = arg.try_into_list()?;
+                list.iter().for_each(|v| new_list.push(v.clone()));
+            }
+
+            Ok(MalType::list(new_list))
         });
 
         instance
