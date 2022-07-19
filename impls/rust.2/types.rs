@@ -209,6 +209,10 @@ impl MalType {
     pub fn symbol(symbol: String) -> Rc<MalType> {
         Rc::new(MalType::Symbol(symbol))
     }
+
+    pub fn string(string: String) -> Rc<MalType> {
+        Rc::new(MalType::String(string))
+    }
 }
 
 impl Eq for MalType {

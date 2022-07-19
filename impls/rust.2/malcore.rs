@@ -1,8 +1,10 @@
+use std::fs::File;
+use std::io::Read;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;
 use crate::printer::Printer;
-use crate::reader::MalError;
+use crate::reader::{MalError, Reader};
 use crate::types::{MalFunc, MalType};
 
 #[allow(dead_code)]
@@ -90,12 +92,27 @@ impl MalCore {
                 Ok(Rc::new(MalType::False))
             }
         });
-        Self::add_binary_func(env, "=", &|a, b| {
+        Self::add_binary_func(env.clone(), "=", &|a, b| {
             if a == b {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
             }
+        });
+        Self::add_unary_func(env.clone(), "read-string", &|str| {
+            let input = str.try_into_string()?;
+            Reader::read_str(input)?.read_form()
+        });
+        Self::add_unary_func(env, "slurp", &|str| {
+            let filename = str.try_into_string()?;
+
+            let mut file =
+                File::open(&filename).map_err(|_| MalError::FileNotFound(filename))?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|e| MalError::InternalError(format!("{}", e)))?;
+
+            Ok(MalType::string(content))
         });
 
         instance

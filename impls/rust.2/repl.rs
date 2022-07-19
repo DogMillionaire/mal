@@ -4,7 +4,7 @@ use crate::{
     env::Env,
     printer::Printer,
     reader::{MalError, Reader},
-    types::{self, MalType},
+    types::{self, MalFn, MalType},
 };
 
 #[allow(unused_must_use)]
@@ -135,6 +135,34 @@ impl Repl {
                             Self::eval(l[i].clone(), current_env.clone())?;
                         }
                         current_ast = l.last().expect("Expected non empty list for 'do'").clone();
+                    }
+                    MalType::Symbol(s) if s == "eval" => {
+                        let symbol_to_eval = l[1].clone();
+                        let params = vec![Rc::new(MalType::Symbol("input".to_string()))];
+
+                        let body: &MalFn =
+                            &|env: Rc<RefCell<Env>>,
+                              _body: Rc<MalType>,
+                              _params: Vec<Rc<MalType>>,
+                              param_values: Vec<Rc<MalType>>| {
+                                let input = param_values[0].clone();
+
+                                debug!(format!("Calling eval with {}", input));
+                                let a = Self::eval(input, env.clone())?;
+                                Self::eval(a, env)
+                            };
+
+                        let mal = types::MalFunc::new_with_closure(
+                            Some("eval-closure".to_string()),
+                            params,
+                            body,
+                            current_env.clone(),
+                            Rc::new(MalType::Nil),
+                        );
+
+                        current_ast =
+                            MalType::list(vec![Rc::new(MalType::Func(mal)), symbol_to_eval]);
+                        //current_ast = Rc::new(MalType::Func(mal));
                     }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();

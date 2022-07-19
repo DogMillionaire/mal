@@ -15,11 +15,13 @@ pub enum MalError {
     InvalidType,
     ParseError(String),
     IncorrectParamCount(String, usize, usize),
+    FileNotFound(String),
+    InternalError(String),
 }
 
 impl Display for MalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match &self {
             MalError::UnterminatedToken(char, start, end) => write!(
                 f,
                 "end of input found while looking for token '{}' start: {}, end: {}",
@@ -46,6 +48,8 @@ impl Display for MalError {
                 "Function {} expected {} parameters, called with {} parameters",
                 name, expected, actual
             ),
+            &MalError::FileNotFound(file) => write!(f, "File '{}' not found", file),
+            &MalError::InternalError(error) => write!(f, "Internal Error: '{}'", error),
         }
     }
 }
