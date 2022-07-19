@@ -174,15 +174,6 @@ impl Repl {
                     }
                     Ok(value)
                 }
-                MalType::Func(name, func) => {
-                    debug!(format!(
-                        "Executing func: {} with {:?} and {:?}",
-                        name,
-                        l[1].clone(),
-                        l[2].clone()
-                    ));
-                    return Ok(func.as_ref()(l[1].clone(), l[2].clone()));
-                }
                 MalType::Func2(func) => {
                     let params = l[1..l.len()].iter().map(|v| v.clone()).collect();
                     Self::execute(func, params)

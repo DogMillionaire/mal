@@ -13,7 +13,6 @@ pub enum MalType {
     Vector(Vec<Rc<MalType>>),
     Keyword(String),
     Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
-    Func(String, Rc<dyn Fn(Rc<MalType>, Rc<MalType>) -> Rc<MalType>>),
     Func2(MalFunc),
     True,
     False,
@@ -153,7 +152,6 @@ impl PartialEq for MalType {
             (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
-            (Self::Func(l0, _), Self::Func(r0, _)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -170,7 +168,6 @@ impl std::fmt::Debug for MalType {
             Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
-            Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
             Self::Func2(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
@@ -194,7 +191,6 @@ impl std::hash::Hash for MalType {
                     entry.1.hash(state);
                 }
             }
-            MalType::Func(name, _) => name.hash(state),
             MalType::Func2(func) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
