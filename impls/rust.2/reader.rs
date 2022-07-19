@@ -1,4 +1,4 @@
-use std::{char, collections::HashMap, fmt::Display};
+use std::{char, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::types::MalType;
 
@@ -309,7 +309,7 @@ impl Reader {
         Ok((idx, result))
     }
 
-    pub fn read_form(&mut self) -> Result<MalType, MalError> {
+    pub fn read_form(&mut self) -> Result<Rc<MalType>, MalError> {
         let next_token = self.peek();
         if DEBUG {
             eprintln!("read_form: {:?}", next_token);
@@ -327,26 +327,26 @@ impl Reader {
             Token::Keyword(name) => {
                 let result = MalType::Keyword(name.to_string());
                 self.next();
-                Ok(result)
+                Ok(Rc::new(result))
             }
             _ => self.read_atom(),
         }
     }
 
-    fn read_macro(&mut self, symbol: String) -> Result<MalType, MalError> {
-        let mut types: Vec<MalType> = vec![];
+    fn read_macro(&mut self, symbol: String) -> Result<Rc<MalType>, MalError> {
+        let mut types: Vec<Rc<MalType>> = vec![];
 
-        types.push(MalType::Symbol(symbol));
+        types.push(Rc::new(MalType::Symbol(symbol)));
         self.next();
         types.push(self.read_form()?);
 
-        Ok(MalType::List(types))
+        Ok(Rc::new(MalType::List(types)))
     }
 
-    fn read_hashmap(&mut self) -> Result<MalType, MalError> {
+    fn read_hashmap(&mut self) -> Result<Rc<MalType>, MalError> {
         let tokens = self.read_token_list(&Token::OpenBrace, &Token::CloseBrace)?;
 
-        let mut hashmap: HashMap<MalType, MalType> = HashMap::new();
+        let mut hashmap: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
 
         if tokens.len() % 2 != 0 {
             return Err(MalError::UnbalancedHashmap);
@@ -356,40 +356,40 @@ impl Reader {
             hashmap.insert(chunk[0].clone(), chunk[1].clone());
         }
 
-        Ok(MalType::Hashmap(hashmap))
+        Ok(Rc::new(MalType::Hashmap(hashmap)))
     }
 
-    fn read_atom(&mut self) -> Result<MalType, MalError> {
+    fn read_atom(&mut self) -> Result<Rc<MalType>, MalError> {
         match self.next() {
-            Token::String(s) => Ok(MalType::String(s.to_string())),
-            Token::Atom(s) if s == "nil" => Ok(MalType::Nil),
-            Token::Atom(s) if s == "true" => Ok(MalType::True),
-            Token::Atom(s) if s == "false" => Ok(MalType::False),
-            Token::Atom(s) => Ok(MalType::Symbol(s.to_string())),
-            Token::Number(n) => Ok(MalType::Number(*n)),
-            _ => Ok(MalType::Nil),
+            Token::String(s) => Ok(Rc::new(MalType::String(s.to_string()))),
+            Token::Atom(s) if s == "nil" => Ok(Rc::new(MalType::Nil)),
+            Token::Atom(s) if s == "true" => Ok(Rc::new(MalType::True)),
+            Token::Atom(s) if s == "false" => Ok(Rc::new(MalType::False)),
+            Token::Atom(s) => Ok(Rc::new(MalType::Symbol(s.to_string()))),
+            Token::Number(n) => Ok(Rc::new(MalType::Number(*n))),
+            _ => Ok(Rc::new(MalType::Nil)),
         }
     }
 
-    fn read_vector(&mut self) -> Result<MalType, MalError> {
-        Ok(MalType::Vector(self.read_token_list(
+    fn read_vector(&mut self) -> Result<Rc<MalType>, MalError> {
+        Ok(Rc::new(MalType::Vector(self.read_token_list(
             &Token::OpenSquare,
             &Token::CloseSquare,
-        )?))
+        )?)))
     }
 
-    fn read_list(&mut self) -> Result<MalType, MalError> {
-        Ok(MalType::List(
+    fn read_list(&mut self) -> Result<Rc<MalType>, MalError> {
+        Ok(Rc::new(MalType::List(
             self.read_token_list(&Token::OpenParen, &Token::CloseParen)?,
-        ))
+        )))
     }
 
     fn read_token_list(
         &mut self,
         start_token: &Token,
         end_token: &Token,
-    ) -> Result<Vec<MalType>, MalError> {
-        let mut tokens: Vec<MalType> = vec![];
+    ) -> Result<Vec<Rc<MalType>>, MalError> {
+        let mut tokens: Vec<Rc<MalType>> = vec![];
         // Skip the open OpenParen
         assert_eq!(start_token, self.next());
         loop {
@@ -440,7 +440,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::List(_));
+        assert_matches!(result.as_ref(), &MalType::List(_));
     }
 
     #[test]
@@ -449,10 +449,10 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::List(l) => {
+        assert_matches!(result.clone().as_ref(), MalType::List(l) => {
             assert_eq!(2, l.len());
-            assert_matches!(l[0], MalType::List(_));
-            assert_matches!(l[0], MalType::List(_));
+            assert_matches!(l[0].as_ref(), MalType::List(_));
+            assert_matches!(l[0].as_ref(), MalType::List(_));
         });
     }
 
@@ -462,7 +462,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::String(s) => {
+        assert_matches!(result.as_ref(), MalType::String(s) => {
             assert_eq!("abc", s);
         });
     }
@@ -487,7 +487,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::String(s) => {
+        assert_matches!(result.as_ref(), MalType::String(s) => {
             assert_eq!("abc\\\"def", s);
         });
     }
@@ -498,7 +498,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::Keyword(k) => {
+        assert_matches!(result.as_ref(), MalType::Keyword(k) => {
             assert_eq!("kw", k);
         });
     }
@@ -509,10 +509,10 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result, MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l) => {
             assert_eq!(2, l.len());
-            assert_matches!(l[0], MalType::Symbol(_));
-            assert_matches!(l[1], MalType::Number(1));
+            assert_matches!(l[0].as_ref(), &MalType::Symbol(_));
+            assert_matches!(l[1].as_ref(), &MalType::Number(1));
         });
     }
 
@@ -522,11 +522,11 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result, MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l) => {
             assert_eq!(3, l.len(), "List should have 3 elements");
-            assert_matches!(l[0], MalType::Symbol(_));
-            assert_matches!(l[1], MalType::Symbol(_));
-            assert_matches!(l[2], MalType::Number(_));
+            assert_matches!(l[0].as_ref(), &MalType::Symbol(_));
+            assert_matches!(l[1].as_ref(), &MalType::Symbol(_));
+            assert_matches!(l[2].as_ref(), &MalType::Number(_));
         });
     }
 
@@ -536,7 +536,7 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result, MalType::Nil);
+        assert_matches!(result.as_ref(), &MalType::Nil);
     }
 
     #[test]
@@ -545,7 +545,7 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result, MalType::True);
+        assert_matches!(result.as_ref(), &MalType::True);
     }
 
     #[test]
@@ -554,7 +554,7 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result, MalType::False);
+        assert_matches!(result.as_ref(), &MalType::False);
     }
 
     //

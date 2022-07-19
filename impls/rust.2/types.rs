@@ -6,14 +6,14 @@ use crate::reader::MalError;
 
 pub enum MalType {
     Nil,
-    List(Vec<MalType>),
+    List(Vec<Rc<MalType>>),
     Symbol(String),
     Number(isize),
     String(String),
-    Vector(Vec<MalType>),
+    Vector(Vec<Rc<MalType>>),
     Keyword(String),
-    Hashmap(HashMap<MalType, MalType>),
-    Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
+    Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
+    Func(String, Rc<dyn Fn(Rc<MalType>, Rc<MalType>) -> Rc<MalType>>),
     Func2(MalFunc),
     True,
     False,
@@ -22,9 +22,10 @@ pub enum MalType {
 /// Wrapper for a function
 pub struct MalFunc {
     name: String,
-    parameters: Vec<MalType>,
-    body: Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>>,
+    parameters: Vec<Rc<MalType>>,
+    body: Box<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError>>,
     env: Rc<RefCell<Env>>,
+    body_ast: Rc<MalType>,
 }
 
 impl std::fmt::Debug for MalFunc {
@@ -43,30 +44,21 @@ impl Hash for MalFunc {
     }
 }
 
-impl Clone for MalFunc {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            parameters: self.parameters.clone(),
-            body: self.body.clone(),
-            env: self.env.clone(),
-        }
-    }
-}
-
 impl MalFunc {
     pub fn new(
         name: Option<String>,
-        parameters: Vec<MalType>,
-        body: Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>>,
+        parameters: Vec<Rc<MalType>>,
+        body: impl Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError> + 'static,
         env: Rc<RefCell<Env>>,
+        body_ast: Rc<MalType>,
     ) -> Self {
         let name = name.unwrap_or(String::from("anonymous"));
         Self {
             name,
             parameters,
-            body,
+            body: Box::new(body),
             env,
+            body_ast,
         }
     }
 
@@ -74,53 +66,57 @@ impl MalFunc {
         self.name.clone()
     }
 
-    pub fn parameters(&self) -> &[MalType] {
+    pub fn parameters(&self) -> &[Rc<MalType>] {
         self.parameters.as_ref()
     }
 
-    pub fn body(&self) -> Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>> {
-        self.body.clone()
+    pub fn body(&self) -> &dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError> {
+        self.body.as_ref()
     }
 
     pub fn env(&self) -> Rc<RefCell<Env>> {
         self.env.clone()
     }
+
+    pub fn body_ast(&self) -> Rc<MalType> {
+        self.body_ast.clone()
+    }
 }
 
 impl MalType {
-    pub fn try_into_list(self) -> Result<Vec<MalType>, MalError> {
+    pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
-            Self::List(v) => Ok(v),
-            Self::Vector(v) => Ok(v),
+            Self::List(v) => Ok(v.clone()),
+            Self::Vector(v) => Ok(v.clone()),
             _ => Err(MalError::InvalidType),
         }
     }
 
-    pub fn try_into_symbol(self) -> Result<String, MalError> {
+    pub fn try_into_symbol(&self) -> Result<String, MalError> {
         if let Self::Symbol(v) = self {
-            Ok(v)
+            Ok(v.to_string())
         } else {
             Err(MalError::InvalidType)
         }
     }
 
-    pub fn try_into_number(self) -> Result<isize, MalError> {
+    pub fn try_into_number(&self) -> Result<isize, MalError> {
         if let Self::Number(v) = self {
-            Ok(v)
+            Ok(*v)
         } else {
             Err(MalError::InvalidType)
         }
     }
 
-    pub fn try_into_string(self) -> Result<String, MalError> {
+    pub fn try_into_string(&self) -> Result<String, MalError> {
         if let Self::String(v) = self {
-            Ok(v)
+            Ok(v.to_string())
         } else {
             Err(MalError::InvalidType)
         }
     }
 
-    pub fn try_into_vector(self) -> Result<Vec<MalType>, MalError> {
+    pub fn try_into_vector(self) -> Result<Vec<Rc<MalType>>, MalError> {
         if let Self::Vector(v) = self {
             Ok(v)
         } else {
@@ -131,25 +127,6 @@ impl MalType {
 
 impl Eq for MalType {
     fn assert_receiver_is_total_eq(&self) {}
-}
-
-impl Clone for MalType {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Nil => Self::Nil,
-            Self::List(arg0) => Self::List(arg0.clone()),
-            Self::Symbol(arg0) => Self::Symbol(arg0.clone()),
-            Self::Number(arg0) => Self::Number(*arg0),
-            Self::String(arg0) => Self::String(arg0.clone()),
-            Self::Vector(arg0) => Self::Vector(arg0.clone()),
-            Self::Keyword(arg0) => Self::Keyword(arg0.clone()),
-            Self::Hashmap(arg0) => Self::Hashmap(arg0.clone()),
-            Self::Func(arg0, arg1) => Self::Func(arg0.clone(), arg1.clone()),
-            Self::Func2(arg0) => Self::Func2(arg0.clone()),
-            Self::True => Self::True,
-            Self::False => Self::False,
-        }
-    }
 }
 
 impl PartialEq for MalType {

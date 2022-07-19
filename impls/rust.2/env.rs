@@ -4,15 +4,15 @@ use crate::{MalError, MalType};
 
 pub struct Env {
     outer: Option<Rc<RefCell<Env>>>,
-    data: HashMap<String, MalType>,
+    data: HashMap<String, Rc<MalType>>,
 }
 
 pub type MalEnv = Rc<RefCell<Env>>;
 
 impl Env {
     pub fn new(
-        bindings: Option<Vec<MalType>>,
-        exprs: Option<Vec<MalType>>,
+        bindings: Option<Vec<Rc<MalType>>>,
+        exprs: Option<Vec<Rc<MalType>>>,
         outer: Option<MalEnv>,
     ) -> MalEnv {
         let mut env = Env {
@@ -23,10 +23,7 @@ impl Env {
         match (bindings, exprs) {
             (Some(b), Some(e)) => {
                 for (binding, expression) in b.iter().zip(e.iter()) {
-                    env.set(
-                        binding.clone().try_into_symbol().unwrap(),
-                        expression.clone(),
-                    );
+                    env.set(binding.try_into_symbol().unwrap(), expression.clone());
                 }
             }
             (None, Some(_)) | (Some(_), None) => {
@@ -38,8 +35,8 @@ impl Env {
         Rc::new(RefCell::new(env))
     }
 
-    pub fn set(&mut self, key: String, value: MalType) {
-        self.data.insert(key, value);
+    pub fn set(&mut self, key: String, value: Rc<MalType>) {
+        self.data.insert(key, value.clone());
     }
 
     // fn find(&self, key: String) -> Result<Rc<RefCell<&Env>>, MalError> {
@@ -53,7 +50,7 @@ impl Env {
     //     Err(MalError::SymbolNotFound(key))
     // }
 
-    pub fn get(&self, key: String) -> Result<MalType, MalError> {
+    pub fn get(&self, key: String) -> Result<Rc<MalType>, MalError> {
         match self.data.get(&key) {
             Some(v) => Ok(v.clone()),
             None => {

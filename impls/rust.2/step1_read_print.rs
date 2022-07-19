@@ -4,25 +4,27 @@ mod reader;
 mod repl;
 mod types;
 
+use std::rc::Rc;
+
 use reader::MalError;
 
 use crate::printer::Printer;
 use crate::reader::Reader;
 use crate::types::MalType;
 
-fn read(input: String) -> Result<MalType, MalError> {
+fn read(input: String) -> Result<Rc<MalType>, MalError> {
     let mut reader = Reader::read_str(input)?;
 
     //eprintln!("Read reult: {:?}", result);
     reader.read_form()
 }
 
-fn eval(input: MalType) -> MalType {
+fn eval(input: Rc<MalType>) -> Rc<MalType> {
     input
 }
 
-fn print(input: MalType) -> String {
-    Printer::pr_str(input)
+fn print(input: Rc<MalType>) -> String {
+    Printer::pr_str(&input)
 }
 
 fn rep(input: String) -> Result<String, MalError> {

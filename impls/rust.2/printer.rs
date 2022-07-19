@@ -33,7 +33,7 @@ impl Display for MalType {
 }
 
 impl Printer {
-    pub fn pr_str(data: MalType) -> String {
+    pub fn pr_str(data: &MalType) -> String {
         format!("{}", data)
     }
 }
