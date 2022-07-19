@@ -124,7 +124,7 @@ impl MalCore {
             let value = atom.try_into_atom()?;
             Ok(value.into_inner())
         });
-        Self::add_binary_func(env, "reset!", &|val1, val2| {
+        Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
             atom.replace(val2.clone());
             Ok(val2)

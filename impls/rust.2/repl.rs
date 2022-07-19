@@ -165,6 +165,21 @@ impl Repl {
                         current_ast =
                             MalType::list(vec![Rc::new(MalType::Func(mal)), symbol_to_eval]);
                     }
+                    MalType::Symbol(s) if s == "swap!" => {
+                        let atom_symbol = l[1].clone().try_into_symbol()?;
+                        let atom = current_env.borrow().get(atom_symbol)?.try_into_atom()?;
+                        let func = l[2].clone();
+
+                        let atom_value = atom.borrow().clone();
+
+                        let mut func_ast = vec![func, atom_value];
+                        l[2..].iter().for_each(|f| func_ast.push(f.clone()));
+
+                        let new_value = Self::eval(MalType::list(func_ast), current_env.clone())?;
+                        atom.replace(new_value.clone());
+
+                        return Ok(new_value);
+                    }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();
                         if let Some(f) = func.body() {
