@@ -5,10 +5,12 @@ use crate::printer::Printer;
 use crate::reader::MalError;
 use crate::types::{MalFunc, MalType};
 
+#[allow(dead_code)]
 pub struct MalCore {
     ns: HashMap<String, MalType>,
 }
 
+#[allow(dead_code)]
 impl MalCore {
     pub fn add_to_env(env: Rc<RefCell<Env>>) -> Self {
         let instance = Self { ns: HashMap::new() };

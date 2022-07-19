@@ -110,6 +110,7 @@ impl MalFunc {
     }
 }
 
+#[allow(dead_code)]
 impl MalType {
     pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
@@ -276,8 +277,7 @@ impl std::hash::Hash for MalType {
 mod tests {
     use std::rc::Rc;
 
-    use crate::{reader::Reader, types::MalType};
-    use assert_matches::assert_matches;
+    use crate::types::MalType;
 
     #[test]
     fn match_vector_list() {

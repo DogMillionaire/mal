@@ -10,22 +10,6 @@ use reader::MalError;
 use crate::repl::Repl;
 use crate::types::MalType;
 
-#[allow(unused_macros)]
-#[allow(unused_must_use)]
-#[cfg(debug_assertions)]
-macro_rules! debug {
-    ($x:expr) => {
-        dbg!($x)
-    };
-}
-
-#[cfg(not(debug_assertions))]
-macro_rules! debug {
-    ($x:expr) => {
-        std::convert::identity($x)
-    };
-}
-
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");

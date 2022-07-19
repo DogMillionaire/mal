@@ -156,6 +156,7 @@ fn rep(input: String) -> Result<String, MalError> {
     Ok(print(eval_result))
 }
 
+#[allow(dead_code)]
 type NumericFn = Rc<dyn Fn(Rc<MalType>, Rc<MalType>) -> Rc<MalType>>;
 
 fn main() {

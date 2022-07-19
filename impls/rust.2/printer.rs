@@ -43,14 +43,14 @@ impl Printer {
             .iter()
             .map(|v| Self::pr_str(v, print_readonly))
             .collect();
-        format!("{}{}{}", start_char, values.join(seperator), end_char).to_string()
+        format!("{}{}{}", start_char, values.join(seperator), end_char)
     }
 
     fn print_string(string: &String, print_readonly: bool) -> String {
         let mut formatted = string.to_string();
         if print_readonly {
-            formatted = formatted.replace("\\", "\\\\");
-            formatted = formatted.replace("\n", "\\n");
+            formatted = formatted.replace('\\', "\\\\");
+            formatted = formatted.replace('\n', "\\n");
             formatted = formatted.replace('"', "\\\"");
             formatted = format!("\"{}\"", formatted);
         }
@@ -64,7 +64,7 @@ impl Printer {
             MalType::List(l) => Self::print_seperated(l, '(', ')', " ", print_readonly),
             MalType::Symbol(s) => s.to_string(),
             MalType::Number(n) => format!("{}", n),
-            MalType::String(s) => Self::print_string(&s, print_readonly),
+            MalType::String(s) => Self::print_string(s, print_readonly),
             MalType::Vector(v) => Self::print_seperated(v, '[', ']', " ", print_readonly),
             MalType::Keyword(kw) => format!(":{}", kw),
             MalType::Hashmap(h) => {
@@ -78,7 +78,7 @@ impl Printer {
                         )
                     })
                     .collect();
-                format!("{}{}{}", '{', values.join(" "), '}').to_string()
+                format!("{}{}{}", '{', values.join(" "), '}')
             }
             MalType::Func(func) => format!("#<function:{}>", func.name()),
             MalType::True => String::from("true"),

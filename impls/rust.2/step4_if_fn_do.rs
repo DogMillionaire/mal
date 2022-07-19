@@ -5,11 +5,6 @@ mod reader;
 mod repl;
 mod types;
 
-use std::cell::RefCell;
-
-use std::rc::Rc;
-
-use env::Env;
 use reader::MalError;
 
 use crate::repl::Repl;
@@ -29,34 +24,6 @@ macro_rules! debug {
     ($x:expr) => {
         std::convert::identity($x)
     };
-}
-
-fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, isize) -> isize) {
-    let params = vec![
-        Rc::new(MalType::Symbol("a".to_string())),
-        Rc::new(MalType::Symbol("b".to_string())),
-    ];
-
-    let body = |env: Rc<RefCell<Env>>,
-                _body: Rc<MalType>,
-                _params: Vec<Rc<MalType>>,
-                _param_values: Vec<Rc<MalType>>|
-     -> Result<Rc<MalType>, MalError> {
-        let func_env = env.borrow();
-        let a = func_env.get("a".to_string())?.try_into_number()?;
-        let b = func_env.get("b".to_string())?.try_into_number()?;
-        Ok(Rc::new(MalType::Number(value(a, b))))
-    };
-
-    let malfunc = types::MalFunc::new_with_closure(
-        Some(name.clone()),
-        params,
-        body,
-        env.clone(),
-        Rc::new(MalType::Nil),
-    );
-
-    env.borrow_mut().set(name, Rc::new(MalType::Func(malfunc)))
 }
 
 fn main() {
