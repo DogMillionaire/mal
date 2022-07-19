@@ -113,7 +113,7 @@ fn eval(ast: Rc<MalType>, env: &HashMap<String, NumericFn>) -> Result<Rc<MalType
 }
 
 fn print(input: Rc<MalType>) -> String {
-    Printer::pr_str(&input)
+    Printer::pr_str(&input, true)
 }
 
 fn rep(input: String) -> Result<String, MalError> {

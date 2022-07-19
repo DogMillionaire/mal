@@ -28,9 +28,6 @@ impl Core {
         Self::add_param_list_func(env.clone(), "prn", &|a| {
             Self::print_str(a, "", true, true, false)
         });
-        Self::add_param_list_func(env.clone(), "prn", &|a| {
-            Self::print_str(a, "", true, true, false)
-        });
         Self::add_param_list_func(env.clone(), "println", &|a| {
             Self::print_str(a, "", false, true, false)
         });

@@ -114,7 +114,6 @@ impl Reader {
             match (current, escape_next) {
                 ('\\', true) => {
                     result.push('\\');
-                    result.push('\\');
                     escape_next = false;
                 }
                 ('\\', false) => {
@@ -125,13 +124,11 @@ impl Reader {
                     break;
                 }
                 ('"', true) => {
-                    result.push('\\');
                     result.push('"');
                     escape_next = false;
                 }
                 ('n', true) => {
-                    result.push('\\');
-                    result.push('n');
+                    result.push('\n');
                     escape_next = false;
                 }
                 (c, _) => {

@@ -24,7 +24,7 @@ fn eval(input: Rc<MalType>) -> Rc<MalType> {
 }
 
 fn print(input: Rc<MalType>) -> String {
-    Printer::pr_str(&input)
+    Printer::pr_str(&input, true)
 }
 
 fn rep(input: String) -> Result<String, MalError> {
