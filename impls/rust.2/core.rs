@@ -98,7 +98,7 @@ impl Core {
                     params: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> { func(params) };
 
-        let malfunc = Rc::new(MalType::Func2(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new(
             Some(name.to_string()),
             vec![],
             body,
@@ -129,7 +129,7 @@ impl Core {
             func(lhs, rhs)
         };
 
-        let malfunc = Rc::new(MalType::Func2(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new(
             Some(name.to_string()),
             params,
             body,
@@ -156,7 +156,7 @@ impl Core {
             func(a)
         };
 
-        let malfunc = Rc::new(MalType::Func2(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new(
             Some(name.to_string()),
             params,
             body,
@@ -187,7 +187,7 @@ impl Core {
             Ok(Rc::new(MalType::Number(func(a, b))))
         };
 
-        let malfunc = Rc::new(MalType::Func2(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new(
             Some(name.to_string()),
             params,
             body,
@@ -227,6 +227,6 @@ impl Core {
         );
 
         env.borrow_mut()
-            .set(name.clone(), Rc::new(MalType::Func2(malfunc)))
+            .set(name.clone(), Rc::new(MalType::Func(malfunc)))
     }
 }

@@ -13,7 +13,7 @@ pub enum MalType {
     Vector(Vec<Rc<MalType>>),
     Keyword(String),
     Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
-    Func2(MalFunc),
+    Func(MalFunc),
     True,
     False,
 }
@@ -168,7 +168,7 @@ impl std::fmt::Debug for MalType {
             Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
-            Self::Func2(arg0) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
         }
@@ -191,7 +191,7 @@ impl std::hash::Hash for MalType {
                     entry.1.hash(state);
                 }
             }
-            MalType::Func2(func) => func.hash(state),
+            MalType::Func(func) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
         }

@@ -165,7 +165,7 @@ impl Repl {
                     //     Some(env),
                     // );
 
-                    return Ok(Rc::new(MalType::Func2(mal)));
+                    return Ok(Rc::new(MalType::Func(mal)));
                 }
                 MalType::Symbol(s) if s == "do" => {
                     let mut value: Rc<MalType> = Rc::new(MalType::Nil);
@@ -174,7 +174,7 @@ impl Repl {
                     }
                     Ok(value)
                 }
-                MalType::Func2(func) => {
+                MalType::Func(func) => {
                     let params = l[1..l.len()].iter().map(|v| v.clone()).collect();
                     Self::execute(func, params)
                 }
