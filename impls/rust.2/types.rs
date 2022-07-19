@@ -143,7 +143,9 @@ impl MalType {
     fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
         let (this_vec, other_vec) = match (this, other) {
             (MalType::List(l1), MalType::List(l2)) => (l1, l2),
+            (MalType::List(l1), MalType::Vector(l2)) => (l1, l2),
             (MalType::Vector(l1), MalType::Vector(l2)) => (l1, l2),
+            (MalType::Vector(l1), MalType::List(l2)) => (l1, l2),
             _ => unreachable!(),
         };
 
@@ -176,9 +178,10 @@ impl Eq for MalType {
 impl PartialEq for MalType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::List(_), Self::List(_)) | (Self::Vector(_), Self::Vector(_)) => {
-                MalType::compare_as_vec(self, other)
-            }
+            (Self::List(_), Self::List(_))
+            | (Self::List(_), Self::Vector(_))
+            | (Self::Vector(_), Self::Vector(_))
+            | (Self::Vector(_), Self::List(_)) => MalType::compare_as_vec(self, other),
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
@@ -227,5 +230,22 @@ impl std::hash::Hash for MalType {
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::{reader::Reader, types::MalType};
+    use assert_matches::assert_matches;
+
+    #[test]
+    fn match_vector_list() {
+        let elements = vec![Rc::new(MalType::Number(1)), Rc::new(MalType::Number(2))];
+        let list = MalType::List(elements.clone());
+        let vector = MalType::Vector(elements);
+
+        assert_eq!(list, vector);
     }
 }
