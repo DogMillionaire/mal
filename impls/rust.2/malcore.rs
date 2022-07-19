@@ -130,10 +130,11 @@ impl MalCore {
     ) {
         let body = |_env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    params: Vec<Rc<MalType>>|
-         -> Result<Rc<MalType>, MalError> { func(params) };
+                    _params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> { func(param_values) };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             vec![],
             body,
@@ -156,15 +157,16 @@ impl MalCore {
 
         let body = |env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    _params: Vec<Rc<MalType>>|
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = env.borrow();
-            let lhs = func_env.get("lhs".to_string())?;
-            let rhs = func_env.get("rhs".to_string())?;
+            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let lhs = func_env.borrow().get("lhs".to_string())?;
+            let rhs = func_env.borrow().get("rhs".to_string())?;
             func(lhs, rhs)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
@@ -184,14 +186,15 @@ impl MalCore {
 
         let body = |env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    _params: Vec<Rc<MalType>>|
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = env.borrow();
-            let a = func_env.get("a".to_string())?;
+            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let a = func_env.borrow().get("a".to_string())?;
             func(a)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
@@ -214,15 +217,16 @@ impl MalCore {
 
         let body = |env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    _params: Vec<Rc<MalType>>|
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = env.borrow();
-            let a = func_env.get("a".to_string())?.try_into_number()?;
-            let b = func_env.get("b".to_string())?.try_into_number()?;
+            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
+            let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
             Ok(Rc::new(MalType::Number(func(a, b))))
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new(
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
@@ -231,36 +235,5 @@ impl MalCore {
         )));
 
         env.borrow_mut().set(name.to_string(), malfunc);
-    }
-
-    fn add_func2(
-        env: Rc<RefCell<Env>>,
-        name: String,
-        value: &'static dyn Fn(isize, isize) -> isize,
-    ) {
-        let params = vec![
-            Rc::new(MalType::Symbol("a".to_string())),
-            Rc::new(MalType::Symbol("b".to_string())),
-        ];
-
-        let body = |env: Rc<RefCell<Env>>,
-                    _body: Rc<MalType>,
-                    _params: Vec<Rc<MalType>>|
-         -> Result<Rc<MalType>, MalError> {
-            let func_env = env.borrow();
-            let a = func_env.get("a".to_string())?.try_into_number()?;
-            let b = func_env.get("b".to_string())?.try_into_number()?;
-            Ok(Rc::new(MalType::Number(value(a, b))))
-        };
-
-        let malfunc = MalFunc::new(
-            Some(name.clone()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        );
-
-        env.borrow_mut().set(name, Rc::new(MalType::Func(malfunc)))
     }
 }

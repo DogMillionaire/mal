@@ -1,4 +1,5 @@
 mod env;
+mod malcore;
 mod printer;
 mod reader;
 mod repl;

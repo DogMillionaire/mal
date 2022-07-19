@@ -22,9 +22,7 @@ pub enum MalType {
 pub struct MalFunc {
     name: String,
     parameters: Vec<Rc<MalType>>,
-    body: Box<
-        dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>,
-    >,
+    body: Option<Box<MalFn>>,
     env: Rc<RefCell<Env>>,
     body_ast: Rc<MalType>,
 }
@@ -45,14 +43,38 @@ impl Hash for MalFunc {
     }
 }
 
-pub type MalFn =
-    dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>;
+pub type MalFn = dyn Fn(
+    Rc<RefCell<Env>>,
+    Rc<MalType>,
+    Vec<Rc<MalType>>,
+    Vec<Rc<MalType>>,
+) -> Result<Rc<MalType>, MalError>;
 
 impl MalFunc {
     pub fn new(
         name: Option<String>,
         parameters: Vec<Rc<MalType>>,
-        body: impl Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
+        env: Rc<RefCell<Env>>,
+        body_ast: Rc<MalType>,
+    ) -> Self {
+        let name = name.unwrap_or(String::from("anonymous"));
+        Self {
+            name,
+            parameters,
+            body: None,
+            env,
+            body_ast,
+        }
+    }
+    pub fn new_with_closure(
+        name: Option<String>,
+        parameters: Vec<Rc<MalType>>,
+        body: impl Fn(
+                Rc<RefCell<Env>>,
+                Rc<MalType>,
+                Vec<Rc<MalType>>,
+                Vec<Rc<MalType>>,
+            ) -> Result<Rc<MalType>, MalError>
             + 'static,
         env: Rc<RefCell<Env>>,
         body_ast: Rc<MalType>,
@@ -61,7 +83,7 @@ impl MalFunc {
         Self {
             name,
             parameters,
-            body: Box::new(body),
+            body: Some(Box::new(body)),
             env,
             body_ast,
         }
@@ -75,19 +97,16 @@ impl MalFunc {
         self.parameters.as_ref()
     }
 
-    pub fn body(
-        &self,
-    ) -> &dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
-    {
-        self.body.as_ref()
-    }
-
     pub fn env(&self) -> Rc<RefCell<Env>> {
         self.env.clone()
     }
 
     pub fn body_ast(&self) -> Rc<MalType> {
         self.body_ast.clone()
+    }
+
+    pub fn body(&self) -> Option<&Box<MalFn>> {
+        self.body.as_ref()
     }
 }
 
