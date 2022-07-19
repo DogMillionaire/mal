@@ -169,6 +169,14 @@ impl MalType {
             None
         }
     }
+
+    /// Returns `true` if the mal type is [`String`].
+    ///
+    /// [`String`]: MalType::String
+    #[must_use]
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(..))
+    }
 }
 
 impl Eq for MalType {
