@@ -12,7 +12,7 @@ pub enum MalError {
     InvalidNumber(String, usize),
     UnbalancedHashmap,
     SymbolNotFound(String),
-    InvalidType,
+    InvalidType(String, String),
     ParseError(String),
     IncorrectParamCount(String, usize, usize),
     FileNotFound(String),
@@ -41,7 +41,11 @@ impl Display for MalError {
                 write!(f, "Number of keys and values does not match for hashmap")
             }
             MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
-            MalError::InvalidType => write!(f, "Invalid type"),
+            MalError::InvalidType(expected, actual) => write!(
+                f,
+                "Invalid type. Expected: {}, Actual: {}",
+                expected, actual
+            ),
             MalError::ParseError(msg) => write!(f, "Parse error: {}", msg),
             MalError::IncorrectParamCount(name, expected, actual) => write!(
                 f,
@@ -204,6 +208,9 @@ impl Reader {
                     if (idx < chars.len() - 1) && chars[idx + 1] == '*' {
                         idx += 1;
                         Token::Atom("**".to_string())
+                    } else if (idx < chars.len() - 1) && chars[idx + 1] == 'A' {
+                        idx += 5;
+                        Token::Atom("*ARGV*".to_string())
                     } else {
                         Token::Atom("*".to_string())
                     }

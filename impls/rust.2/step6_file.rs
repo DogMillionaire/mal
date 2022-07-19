@@ -11,6 +11,7 @@ use crate::repl::Repl;
 use crate::types::MalType;
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
 
@@ -25,6 +26,15 @@ fn main() {
             .to_string(),
     )
     .expect("Fail to parse def! load-file");
+
+    let arg_list: Vec<_> = args[1..]
+        .iter()
+        .map(|a| MalType::string(a.to_string()))
+        .collect();
+
+    repl.env()
+        .borrow_mut()
+        .set(String::from("*ARGV*"), MalType::list(arg_list));
 
     loop {
         let readline = rl.readline("user> ");
