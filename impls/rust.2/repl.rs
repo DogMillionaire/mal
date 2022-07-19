@@ -65,14 +65,6 @@ impl Repl {
         func: &types::MalFunc,
         param_values: Vec<Rc<MalType>>,
     ) -> Result<Rc<MalType>, MalError> {
-        if func.parameters().len() > param_values.len() {
-            return Err(MalError::IncorrectParamCount(
-                func.name(),
-                func.parameters().len(),
-                param_values.len(),
-            ));
-        }
-
         let exec_env = Env::new(
             Some(func.parameters().to_vec()),
             Some(param_values.clone()),
