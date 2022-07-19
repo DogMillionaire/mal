@@ -167,7 +167,8 @@ impl Repl {
                     }
                     MalType::Symbol(s) if s == "swap!" => {
                         let atom_symbol = l[1].clone().try_into_symbol()?;
-                        let atom = current_env.borrow().get(atom_symbol)?.try_into_atom()?;
+                        let atom_type = current_env.borrow().get(atom_symbol.to_string())?;
+                        let atom = atom_type.try_into_atom()?;
                         let func = l[2].clone();
 
                         let atom_value = atom.borrow().clone();

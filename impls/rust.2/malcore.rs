@@ -122,7 +122,7 @@ impl MalCore {
         });
         Self::add_unary_func(env.clone(), "deref", &|atom| {
             let value = atom.try_into_atom()?;
-            Ok(value.into_inner())
+            Ok(value.borrow().clone())
         });
         Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;

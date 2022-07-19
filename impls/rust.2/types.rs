@@ -247,9 +247,9 @@ impl MalType {
         Rc::new(MalType::String(string))
     }
 
-    pub fn try_into_atom(&self) -> Result<RefCell<Rc<MalType>>, MalError> {
+    pub fn try_into_atom(&self) -> Result<&RefCell<Rc<MalType>>, MalError> {
         if let Self::Atom(v) = self {
-            Ok(v.clone())
+            Ok(v)
         } else {
             Err(MalError::InvalidType(
                 String::from("MalType::Atom"),

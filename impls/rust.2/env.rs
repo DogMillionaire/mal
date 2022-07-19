@@ -14,6 +14,15 @@ pub struct Env {
 #[allow(dead_code)]
 pub type MalEnv = Rc<RefCell<Env>>;
 
+impl std::fmt::Debug for Env {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Env")
+            .field("outer", &self.outer)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
 #[allow(dead_code)]
 impl Env {
     pub fn new_root(bindings: Option<Vec<Rc<MalType>>>, exprs: Option<Vec<Rc<MalType>>>) -> MalEnv {
