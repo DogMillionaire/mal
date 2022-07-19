@@ -195,7 +195,14 @@ impl Reader {
                     continue;
                 }
                 '/' => Token::Atom("/".to_string()),
-                '*' => Token::Atom("*".to_string()),
+                '*' => {
+                    if (idx < chars.len() - 1) && chars[idx + 1] == '*' {
+                        idx += 1;
+                        Token::Atom("**".to_string())
+                    } else {
+                        Token::Atom("*".to_string())
+                    }
+                }
                 '+' => Token::Atom("+".to_string()),
                 '-' => {
                     // Negative number

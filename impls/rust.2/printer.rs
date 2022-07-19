@@ -32,13 +32,26 @@ impl Display for MalType {
 }
 
 impl Printer {
-    pub fn pr_str(data: &MalType, _print_readonly: bool) -> String {
-        let formatted = format!("{}", data);
-        // if print_readonly {
-        //     formatted = formatted.replace(r#"""#, r#"\""#);
-        //     formatted = formatted.replace("\n", "\\n");
-        //     formatted = formatted.replace("\\", "\\\\");
-        // }
+    pub fn pr_str(data: &MalType, print_readonly: bool) -> String {
+        let mut formatted = format!("{}", data);
+        if print_readonly {
+            formatted = formatted.replace("\\", "\\\\");
+            formatted = formatted.replace("\n", "\\n");
+            // Ignore leading and trailing spaces
+            let mut add_quotes = false;
+            if formatted.starts_with('"') && formatted.ends_with('"') {
+                add_quotes = true;
+                formatted = formatted
+                    .trim_start_matches('"')
+                    .trim_end_matches('"')
+                    .to_string();
+
+                formatted = formatted.replace('"', "\\\"");
+            }
+            if add_quotes {
+                formatted = format!("\"{}\"", formatted);
+            }
+        }
 
         formatted
     }
