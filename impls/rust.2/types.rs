@@ -113,11 +113,31 @@ impl MalFunc {
 
 #[allow(dead_code)]
 impl MalType {
+    pub fn type_name(&self) -> String {
+        match self {
+            MalType::Nil => String::from("MalType::Nil"),
+            MalType::List(_) => String::from("MalType::List"),
+            MalType::Symbol(_) => String::from("MalType::Symbol"),
+            MalType::Number(_) => String::from("MalType::Number"),
+            MalType::String(_) => String::from("MalType::String"),
+            MalType::Vector(_) => String::from("MalType::Vector"),
+            MalType::Keyword(_) => String::from("MalType::Keyword"),
+            MalType::Hashmap(_) => String::from("MalType::Hashmap"),
+            MalType::Func(_) => String::from("MalType::Func"),
+            MalType::True => String::from("MalType::True"),
+            MalType::False => String::from("MalType::False"),
+            MalType::Atom(_) => String::from("MalType::Atom"),
+        }
+    }
+
     pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
             Self::List(v) => Ok(v.clone()),
             Self::Vector(v) => Ok(v.clone()),
-            _ => Err(MalError::InvalidType),
+            _ => Err(MalError::InvalidType(
+                String::from("MalType::List"),
+                self.type_name(),
+            )),
         }
     }
 
@@ -125,7 +145,10 @@ impl MalType {
         if let Self::Symbol(v) = self {
             Ok(v.to_string())
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Symbol"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -133,7 +156,10 @@ impl MalType {
         if let Self::Number(v) = self {
             Ok(*v)
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Number"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -141,7 +167,10 @@ impl MalType {
         if let Self::String(v) = self {
             Ok(v.to_string())
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::String"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -149,7 +178,10 @@ impl MalType {
         if let Self::Vector(v) = self {
             Ok(v)
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Vector"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -219,7 +251,10 @@ impl MalType {
         if let Self::Atom(v) = self {
             Ok(v.clone())
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Atom"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -233,6 +268,17 @@ impl MalType {
 
     pub fn bool(value: bool) -> Rc<MalType> {
         Rc::new(if value { MalType::True } else { MalType::False })
+    }
+
+    pub fn try_into_func(&self) -> Result<&MalFunc, MalError> {
+        if let Self::Func(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType(
+                String::from("MalType::Func"),
+                self.type_name(),
+            ))
+        }
     }
 }
 
