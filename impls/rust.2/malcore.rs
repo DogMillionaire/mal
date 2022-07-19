@@ -249,25 +249,23 @@ impl MalCore {
             Rc::new(MalType::Symbol("b".to_string())),
         ];
 
-        let body = |env: Rc<RefCell<Env>>,
+        let body = |_env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    params: Vec<Rc<MalType>>,
+                    _params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let _func_env = Env::new_with_outer(Some(params), Some(param_values.clone()), env);
             let a = param_values[0].clone().try_into_number()?;
             let b = param_values[1].clone().try_into_number()?;
             Ok(Rc::new(MalType::Number(func(a, b))))
         };
 
-        let mut func = MalFunc::new_with_closure(
+        let func = MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
             env.clone(),
             Rc::new(MalType::Nil),
         );
-        func.set_fully_evaluate(true);
 
         let malfunc = Rc::new(MalType::Func(func));
 
