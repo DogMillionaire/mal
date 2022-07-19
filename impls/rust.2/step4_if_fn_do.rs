@@ -1,5 +1,5 @@
-mod core;
 mod env;
+mod malcore;
 mod printer;
 mod reader;
 mod repl;
@@ -63,7 +63,7 @@ fn main() {
 
     let mut repl = Repl::new(None, None);
 
-    core::Core::add_to_env(repl.env());
+    malcore::MalCore::add_to_env(repl.env());
     repl.rep("(def! not (fn* (a) (if a false true)))".to_string())
         .expect("Fail to parse def! not");
 

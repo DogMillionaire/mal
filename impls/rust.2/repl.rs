@@ -44,7 +44,7 @@ impl Repl {
     }
 
     fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        //debug!(&ast);
+        debug!(format!("EVAL={:?}", &ast));
         match ast.clone().as_ref() {
             MalType::List(l) => {
                 if l.is_empty() {
@@ -83,10 +83,7 @@ impl Repl {
     }
 
     fn apply(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        //debug!(&ast);
-
-        //eval_ast(ast, env.clone())?
-
+        debug!(format!("APPLY={:?}", &ast));
         match ast.clone().as_ref() {
             MalType::List(l) => match l[0].clone().as_ref() {
                 MalType::Symbol(s) if s == "def!" => {
@@ -163,7 +160,7 @@ impl Repl {
                 MalType::Symbol(s) if s == "do" => {
                     let mut value: Rc<MalType> = Rc::new(MalType::Nil);
                     for i in 1..l.len() {
-                        value = Self::eval_ast(l[i].clone(), env.clone())?;
+                        value = Self::eval(l[i].clone(), env.clone())?;
                     }
                     Ok(value)
                 }
@@ -185,12 +182,12 @@ impl Repl {
     fn read(input: String) -> Result<Rc<MalType>, MalError> {
         let mut reader = Reader::read_str(input)?;
         let result = reader.read_form();
-        debug!(&result);
+        debug!(format!("READ={:?}", &result));
         result
     }
 
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        //debug!(&ast);
+        debug!(format!("EVAL_AST={:?}", &ast));
         match ast.as_ref() {
             MalType::Symbol(name) => env.borrow().get(name.to_string()),
             MalType::List(list) => {
@@ -221,5 +218,37 @@ impl Repl {
             }
             _ => Ok(ast),
         }
+    }
+}
+
+#[cfg(test)]
+mod Tests {
+    use assert_matches::assert_matches;
+
+    use super::Repl;
+    use crate::{malcore::MalCore, types::MalType};
+
+    #[test]
+    fn eval_do() {
+        let ast = Repl::read("(do (prn 101))".to_string()).expect("Expected read to succeed");
+        let mut repl = Repl::new(None, None);
+        MalCore::add_to_env(repl.env());
+
+        let eval_result =
+            Repl::eval(ast.clone(), repl.env()).expect("Expected evaluation to succeed");
+
+        assert_matches!(eval_result.as_ref(), MalType::List(l));
+    }
+
+    #[test]
+    fn test_repl_do() {
+        let mut repl = Repl::new(None, None);
+        MalCore::add_to_env(repl.env());
+
+        let result = repl
+            .rep("(do (prn 101))".to_string())
+            .expect("Evaluation should succeed");
+
+        assert_eq!("101\nnil", result);
     }
 }

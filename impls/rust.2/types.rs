@@ -177,6 +177,18 @@ impl MalType {
     pub fn is_string(&self) -> bool {
         matches!(self, Self::String(..))
     }
+
+    pub fn number(number: isize) -> Rc<MalType> {
+        Rc::new(MalType::Number(number))
+    }
+
+    pub fn list(values: Vec<Rc<MalType>>) -> Rc<MalType> {
+        Rc::new(MalType::List(values))
+    }
+
+    pub fn symbol(symbol: String) -> Rc<MalType> {
+        Rc::new(MalType::Symbol(symbol))
+    }
 }
 
 impl Eq for MalType {

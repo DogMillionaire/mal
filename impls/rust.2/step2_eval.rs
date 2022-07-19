@@ -1,4 +1,5 @@
 mod env;
+mod malcore;
 mod printer;
 mod reader;
 mod repl;
@@ -10,7 +11,6 @@ use std::rc::Rc;
 
 use env::Env;
 use reader::MalError;
-
 
 use crate::printer::Printer;
 use crate::reader::Reader;
