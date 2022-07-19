@@ -23,7 +23,9 @@ pub enum MalType {
 pub struct MalFunc {
     name: String,
     parameters: Vec<Rc<MalType>>,
-    body: Box<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError>>,
+    body: Box<
+        dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>,
+    >,
     env: Rc<RefCell<Env>>,
     body_ast: Rc<MalType>,
 }
@@ -48,7 +50,8 @@ impl MalFunc {
     pub fn new(
         name: Option<String>,
         parameters: Vec<Rc<MalType>>,
-        body: impl Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError> + 'static,
+        body: impl Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
+            + 'static,
         env: Rc<RefCell<Env>>,
         body_ast: Rc<MalType>,
     ) -> Self {
@@ -70,7 +73,10 @@ impl MalFunc {
         self.parameters.as_ref()
     }
 
-    pub fn body(&self) -> &dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<Rc<MalType>, MalError> {
+    pub fn body(
+        &self,
+    ) -> &dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
+    {
         self.body.as_ref()
     }
 
@@ -122,6 +128,14 @@ impl MalType {
         } else {
             Err(MalError::InvalidType)
         }
+    }
+
+    /// Returns `true` if the mal type is [`List`].
+    ///
+    /// [`List`]: MalType::List
+    #[must_use]
+    pub fn is_list(&self) -> bool {
+        matches!(self, Self::List(..))
     }
 }
 

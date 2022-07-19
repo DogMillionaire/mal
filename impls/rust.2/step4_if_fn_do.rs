@@ -1,3 +1,4 @@
+mod core;
 mod env;
 mod printer;
 mod reader;
@@ -37,7 +38,10 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
         Rc::new(MalType::Symbol("b".to_string())),
     ];
 
-    let body = |env: Rc<RefCell<Env>>, _body: Rc<MalType>| -> Result<Rc<MalType>, MalError> {
+    let body = |env: Rc<RefCell<Env>>,
+                _body: Rc<MalType>,
+                _params: Vec<Rc<MalType>>|
+     -> Result<Rc<MalType>, MalError> {
         let func_env = env.borrow();
         let a = func_env.get("a".to_string())?.try_into_number()?;
         let b = func_env.get("b".to_string())?.try_into_number()?;
@@ -62,10 +66,11 @@ fn main() {
 
     let mut repl = Repl::new(None, None);
 
-    add_func2(repl.env(), "+".to_string(), &|a, b| a + b);
-    add_func2(repl.env(), "-".to_string(), &|a, b| a - b);
-    add_func2(repl.env(), "/".to_string(), &|a, b| a / b);
-    add_func2(repl.env(), "*".to_string(), &|a, b| a * b);
+    core::Core::add_to_env(repl.env());
+    // add_func2(repl.env(), "+".to_string(), &|a, b| a + b);
+    // add_func2(repl.env(), "-".to_string(), &|a, b| a - b);
+    // add_func2(repl.env(), "/".to_string(), &|a, b| a / b);
+    // add_func2(repl.env(), "*".to_string(), &|a, b| a * b);
 
     loop {
         let readline = rl.readline("user> ");

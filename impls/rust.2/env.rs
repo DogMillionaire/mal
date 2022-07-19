@@ -57,7 +57,6 @@ impl Env {
                 if let Some(outer) = &self.outer {
                     return outer.borrow().get(key.to_string());
                 }
-                dbg!(&self.data);
                 Err(MalError::SymbolNotFound(key))
             }
         }

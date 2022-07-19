@@ -65,7 +65,7 @@ impl Repl {
         func: &types::MalFunc,
         param_values: Vec<Rc<MalType>>,
     ) -> Result<Rc<MalType>, MalError> {
-        if func.parameters().len() != param_values.len() {
+        if func.parameters().len() > param_values.len() {
             return Err(MalError::IncorrectParamCount(
                 func.name().clone(),
                 func.parameters().len(),
@@ -86,7 +86,7 @@ impl Repl {
             }
         }
 
-        func.body()(exec_env, func.body_ast())
+        func.body()(exec_env, func.body_ast(), param_values)
     }
 
     fn apply(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
@@ -145,7 +145,8 @@ impl Repl {
                     let func_body = l[2].clone();
 
                     let body = |env: Rc<RefCell<Env>>,
-                                body_ast: Rc<MalType>|
+                                body_ast: Rc<MalType>,
+                                _params: Vec<Rc<MalType>>|
                      -> Result<Rc<MalType>, MalError> {
                         return Self::eval(body_ast.clone(), env);
                     };
