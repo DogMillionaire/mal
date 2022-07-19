@@ -71,7 +71,7 @@ fn eval_ast(ast: MalType, env: &HashMap<String, NumericFn>) -> Result<MalType, M
 }
 
 fn call_func(ast: MalType) -> Result<MalType, MalError> {
-    match ast.clone() {
+    match ast {
         MalType::List(l) => {
             assert!(
                 l.len() >= 3,
@@ -119,19 +119,27 @@ fn rep(input: String) -> Result<String, MalError> {
 
     env.insert(
         "+".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) + isize::from(b))),
+        Rc::new(&|a: MalType, b: MalType| {
+            MalType::Number(a.try_into_number().unwrap() + b.try_into_number().unwrap())
+        }),
     );
     env.insert(
         "-".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) - isize::from(b))),
+        Rc::new(&|a: MalType, b: MalType| {
+            MalType::Number(a.try_into_number().unwrap() - b.try_into_number().unwrap())
+        }),
     );
     env.insert(
         "/".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) / isize::from(b))),
+        Rc::new(&|a: MalType, b: MalType| {
+            MalType::Number(a.try_into_number().unwrap() / b.try_into_number().unwrap())
+        }),
     );
     env.insert(
         "*".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) * isize::from(b))),
+        Rc::new(&|a: MalType, b: MalType| {
+            MalType::Number(a.try_into_number().unwrap() * b.try_into_number().unwrap())
+        }),
     );
 
     let read_result = read(input)?;

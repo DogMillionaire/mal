@@ -12,7 +12,7 @@ impl Display for MalType {
                 let values: Vec<_> = l.iter().map(|v| format!("{}", v)).collect();
                 f.write_str(&format!("({})", values.join(" ")))
             }
-            MalType::Symbol(name) => f.write_str(&format!("{}", name)),
+            MalType::Symbol(name) => f.write_str(name),
             MalType::Number(n) => f.write_str(&format!("{}", n)),
             MalType::String(s) => f.write_str(&format!("\"{}\"", s)),
             MalType::Vector(v) => {

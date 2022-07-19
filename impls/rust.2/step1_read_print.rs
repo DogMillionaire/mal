@@ -11,9 +11,9 @@ use crate::types::MalType;
 
 fn read(input: String) -> Result<MalType, MalError> {
     let mut reader = Reader::read_str(input)?;
-    let result = reader.read_form();
+    
     //eprintln!("Read reult: {:?}", result);
-    result
+    reader.read_form()
 }
 
 fn eval(input: MalType) -> MalType {

@@ -373,7 +373,7 @@ impl Reader {
 
     fn read_vector(&mut self) -> Result<MalType, MalError> {
         Ok(MalType::Vector(self.read_token_list(
-            &&Token::OpenSquare,
+            &Token::OpenSquare,
             &Token::CloseSquare,
         )?))
     }

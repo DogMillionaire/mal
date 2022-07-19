@@ -23,7 +23,10 @@ impl Env {
         match (bindings, exprs) {
             (Some(b), Some(e)) => {
                 for (binding, expression) in b.iter().zip(e.iter()) {
-                    env.set(String::from(binding.clone()), expression.clone());
+                    env.set(
+                        binding.clone().try_into_string().unwrap(),
+                        expression.clone(),
+                    );
                 }
             }
             (None, Some(_)) | (Some(_), None) => {

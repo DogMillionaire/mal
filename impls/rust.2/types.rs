@@ -58,11 +58,11 @@ impl MalFunc {
         {
             let mut mut_env = exec_env.borrow_mut();
             for (param, value) in self.parameters.iter().zip(param_values.iter()) {
-                mut_env.set(String::from(param.clone()), value.clone());
+                mut_env.set(param.clone().try_into_symbol()?, value.clone());
             }
         }
 
-        self.body.as_ref()(exec_env.clone())
+        self.body.as_ref()(exec_env)
     }
 
     pub fn name(&self) -> String {
@@ -72,10 +72,10 @@ impl MalFunc {
 
 impl MalType {
     pub fn try_into_list(self) -> Result<Vec<MalType>, MalError> {
-        if let Self::List(v) = self {
-            Ok(v)
-        } else {
-            Err(MalError::InvalidType)
+        match self {
+            Self::List(v) => Ok(v),
+            Self::Vector(v) => Ok(v),
+            _ => Err(MalError::InvalidType),
         }
     }
 
@@ -112,35 +112,6 @@ impl MalType {
     }
 }
 
-impl From<MalType> for String {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::String(s) => s,
-            MalType::Symbol(sym) => sym,
-            t => panic!("Can't convert {:?} into a String", t),
-        }
-    }
-}
-
-impl From<MalType> for isize {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::Number(n) => n,
-            t => panic!("Can't convert {:?} into an isize", t),
-        }
-    }
-}
-
-impl From<MalType> for Vec<MalType> {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::List(l) => l,
-            MalType::Vector(v) => v,
-            t => panic!("Can't convert {:?} into an Vec<MalType>", t),
-        }
-    }
-}
-
 impl Eq for MalType {
     fn assert_receiver_is_total_eq(&self) {}
 }
@@ -151,7 +122,7 @@ impl Clone for MalType {
             Self::Nil => Self::Nil,
             Self::List(arg0) => Self::List(arg0.clone()),
             Self::Symbol(arg0) => Self::Symbol(arg0.clone()),
-            Self::Number(arg0) => Self::Number(arg0.clone()),
+            Self::Number(arg0) => Self::Number(*arg0),
             Self::String(arg0) => Self::String(arg0.clone()),
             Self::Vector(arg0) => Self::Vector(arg0.clone()),
             Self::Keyword(arg0) => Self::Keyword(arg0.clone()),
