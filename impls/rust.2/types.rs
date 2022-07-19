@@ -136,6 +136,26 @@ impl MalType {
     pub fn is_list(&self) -> bool {
         matches!(self, Self::List(..))
     }
+
+    fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
+        let (this_vec, other_vec) = match (this, other) {
+            (MalType::List(l1), MalType::List(l2)) => (l1, l2),
+            (MalType::Vector(l1), MalType::Vector(l2)) => (l1, l2),
+            _ => unreachable!(),
+        };
+
+        if this_vec.len() != other_vec.len() {
+            return false;
+        }
+
+        for (this_val, other_val) in this_vec.iter().zip(other_vec.iter()) {
+            if this_val != other_val {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 impl Eq for MalType {
@@ -145,11 +165,12 @@ impl Eq for MalType {
 impl PartialEq for MalType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::List(l0), Self::List(r0)) => l0 == r0,
+            (Self::List(_), Self::List(_)) | (Self::Vector(_), Self::Vector(_)) => {
+                MalType::compare_as_vec(self, other)
+            }
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
-            (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),

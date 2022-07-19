@@ -39,7 +39,7 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
     );
 
     env.borrow_mut()
-        .set(name.clone(), Rc::new(MalType::Func2(malfunc)))
+        .set(name.clone(), Rc::new(MalType::Func(malfunc)))
 }
 
 fn main() {

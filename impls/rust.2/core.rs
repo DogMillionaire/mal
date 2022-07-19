@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;
@@ -17,13 +18,25 @@ impl Core {
         Self::add_numeric_func(env.clone(), "/", &|a, b| a / b);
         Self::add_numeric_func(env.clone(), "*", &|a, b| a * b);
         Self::add_numeric_func(env.clone(), "-", &|a, b| a - b);
-        Self::add_unary_func(env.clone(), "prn", &|a| {
-            Printer::pr_str(a.as_ref());
-            Ok(Rc::new(MalType::Nil))
+
+        Self::add_param_list_func(env.clone(), "pr-str", &|a| {
+            Self::print_str(a, " ", true, false, true)
         });
-        Self::add_param_list_func(env.clone(), "list", &|params| {
-            Ok(Rc::new(MalType::List(params)))
+        Self::add_param_list_func(env.clone(), "str", &|a| {
+            Self::print_str(a, "", false, false, true)
         });
+        Self::add_param_list_func(env.clone(), "prn", &|a| {
+            Self::print_str(a, "", true, true, false)
+        });
+        Self::add_param_list_func(env.clone(), "prn", &|a| {
+            Self::print_str(a, "", true, true, false)
+        });
+        Self::add_param_list_func(env.clone(), "println", &|a| {
+            Self::print_str(a, "", false, true, false)
+        });
+
+        Self::add_param_list_func(env.clone(), "list", &|a| Ok(Rc::new(MalType::List(a))));
+
         Self::add_unary_func(env.clone(), "list?", &|a| {
             let result = match a.is_list() {
                 true => MalType::True,
@@ -39,7 +52,9 @@ impl Core {
             Ok(Rc::new(result))
         });
         Self::add_unary_func(env.clone(), "count", &|a| {
-            Ok(Rc::new(MalType::Number(a.try_into_list()?.len() as isize)))
+            Ok(Rc::new(MalType::Number(
+                a.try_into_list().unwrap_or(Vec::new()).len() as isize,
+            )))
         });
         Self::add_binary_func(env.clone(), "<", &|a, b| {
             let lhs = a.try_into_number()?;
@@ -50,7 +65,7 @@ impl Core {
                 Ok(Rc::new(MalType::False))
             };
         });
-        Self::add_binary_func(env.clone(), "<", &|a, b| {
+        Self::add_binary_func(env.clone(), "<=", &|a, b| {
             let lhs = a.try_into_number()?;
             let rhs = b.try_into_number()?;
             return if lhs <= rhs {
@@ -86,6 +101,30 @@ impl Core {
         });
 
         instance
+    }
+
+    fn print_str(
+        params: Vec<Rc<MalType>>,
+        seperator: &str,
+        print_readably: bool,
+        output: bool,
+        return_data: bool,
+    ) -> Result<Rc<MalType>, MalError> {
+        let data = params
+            .iter()
+            .map(|v| Printer::pr_str(v.as_ref(), print_readably))
+            .collect::<Vec<String>>()
+            .join(seperator);
+
+        if output {
+            println!("{}", data);
+        }
+
+        return if return_data {
+            Ok(Rc::new(MalType::String(data)))
+        } else {
+            Ok(Rc::new(MalType::Nil))
+        };
     }
 
     fn add_param_list_func(

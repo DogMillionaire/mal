@@ -72,6 +72,9 @@ fn main() {
     // add_func2(repl.env(), "/".to_string(), &|a, b| a / b);
     // add_func2(repl.env(), "*".to_string(), &|a, b| a * b);
 
+    repl.rep("(def! not (fn* (a) (if a false true)))".to_string())
+        .expect("Fail to parse def! not");
+
     loop {
         let readline = rl.readline("user> ");
 

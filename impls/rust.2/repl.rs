@@ -58,7 +58,7 @@ impl Repl {
     }
 
     fn print(input: Rc<MalType>) -> String {
-        Printer::pr_str(input.as_ref())
+        Printer::pr_str(input.as_ref(), true)
     }
 
     fn execute(
