@@ -169,7 +169,7 @@ impl Reader {
                         Token::Unquote
                     }
                 }
-                ' ' | '\t' | ',' => {
+                ' ' | '\t' | ',' | '\n' => {
                     // Skip whitespace
                     idx += 1;
                     continue;
