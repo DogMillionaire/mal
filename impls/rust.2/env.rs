@@ -22,8 +22,20 @@ impl Env {
 
         match (bindings, exprs) {
             (Some(b), Some(e)) => {
-                for (binding, expression) in b.iter().zip(e.iter()) {
-                    env.set(binding.try_into_symbol().unwrap(), expression.clone());
+                for i in 0..b.len() {
+                    let binding_symbol = b[i].try_into_symbol().unwrap();
+                    if binding_symbol == "&" {
+                        let remaining_exprs: Vec<_> =
+                            e[i..e.len()].iter().map(|v| v.clone()).collect();
+
+                        env.set(
+                            b[i + 1].try_into_symbol().unwrap(),
+                            Rc::new(MalType::List(remaining_exprs)),
+                        );
+                        break;
+                    } else {
+                        env.set(binding_symbol, e[i].clone());
+                    }
                 }
             }
             (None, Some(_)) | (Some(_), None) => {

@@ -44,7 +44,7 @@ impl Repl {
     }
 
     fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        debug!(&ast);
+        //debug!(&ast);
         match ast.clone().as_ref() {
             MalType::List(l) => {
                 if l.is_empty() {
@@ -79,18 +79,11 @@ impl Repl {
             Some(func.env()),
         );
 
-        {
-            let mut mut_env = exec_env.borrow_mut();
-            for (param, value) in func.parameters().iter().zip(param_values.iter()) {
-                mut_env.set(param.clone().try_into_symbol()?, value.clone());
-            }
-        }
-
         func.body()(exec_env, func.body_ast(), param_values)
     }
 
     fn apply(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        debug!(&ast);
+        //debug!(&ast);
 
         //eval_ast(ast, env.clone())?
 
@@ -156,7 +149,7 @@ impl Repl {
                         func_parameters.try_into_list()?,
                         body,
                         env,
-                        func_body,
+                        func_body.clone(),
                     );
 
                     // let func_env = Env::new(
@@ -197,7 +190,7 @@ impl Repl {
     }
 
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        debug!(&ast);
+        //debug!(&ast);
         match ast.as_ref() {
             MalType::Symbol(name) => env.borrow().get(name.to_string()),
             MalType::List(list) => {
