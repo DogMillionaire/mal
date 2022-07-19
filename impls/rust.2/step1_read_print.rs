@@ -1,6 +1,7 @@
 mod env;
 mod printer;
 mod reader;
+mod repl;
 mod types;
 
 use reader::MalError;
@@ -11,7 +12,7 @@ use crate::types::MalType;
 
 fn read(input: String) -> Result<MalType, MalError> {
     let mut reader = Reader::read_str(input)?;
-    
+
     //eprintln!("Read reult: {:?}", result);
     reader.read_form()
 }

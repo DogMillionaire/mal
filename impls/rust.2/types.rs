@@ -23,7 +23,7 @@ pub enum MalType {
 pub struct MalFunc {
     name: String,
     parameters: Vec<MalType>,
-    body: Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>>,
+    body: Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>>,
     env: Rc<RefCell<Env>>,
 }
 
@@ -58,7 +58,7 @@ impl MalFunc {
     pub fn new(
         name: Option<String>,
         parameters: Vec<MalType>,
-        body: Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>>,
+        body: Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>>,
         env: Rc<RefCell<Env>>,
     ) -> Self {
         let name = name.unwrap_or(String::from("anonymous"));
@@ -78,7 +78,7 @@ impl MalFunc {
         self.parameters.as_ref()
     }
 
-    pub fn body(&self) -> Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>> {
+    pub fn body(&self) -> Rc<dyn Fn(Rc<RefCell<Env>>, Rc<MalType>) -> Result<MalType, MalError>> {
         self.body.clone()
     }
 

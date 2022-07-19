@@ -1,6 +1,7 @@
 mod env;
 mod printer;
 mod reader;
+mod repl;
 mod types;
 
 use std::collections::HashMap;

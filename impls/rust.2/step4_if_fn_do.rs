@@ -1,6 +1,7 @@
 mod env;
 mod printer;
 mod reader;
+mod repl;
 mod types;
 
 use std::cell::RefCell;
@@ -12,6 +13,7 @@ use reader::MalError;
 
 use crate::printer::Printer;
 use crate::reader::Reader;
+use crate::repl::Repl;
 use crate::types::MalType;
 
 #[allow(unused_must_use)]
@@ -29,207 +31,13 @@ macro_rules! debug {
     };
 }
 
-fn read(input: String) -> Result<MalType, MalError> {
-    let mut reader = Reader::read_str(input)?;
-    let result = reader.read_form();
-    debug!(&result);
-    result
-}
-
-fn eval_ast(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
-    debug!(&ast);
-    match ast {
-        MalType::Symbol(name) => env.borrow().get(name),
-        MalType::List(list) => {
-            let mut new_ast: Vec<MalType> = Vec::with_capacity(list.len());
-            for value in list {
-                let new_value = eval(value.clone(), env.clone())?;
-                new_ast.push(new_value);
-            }
-            Ok(MalType::List(new_ast))
-        }
-        MalType::Vector(vector) => {
-            let mut new_ast: Vec<MalType> = Vec::with_capacity(vector.len());
-            for value in vector {
-                let new_value = eval(value.clone(), env.clone())?;
-                new_ast.push(new_value);
-            }
-            Ok(MalType::Vector(new_ast))
-        }
-        MalType::Hashmap(hashmap) => {
-            let mut new_ast: HashMap<MalType, MalType> = HashMap::with_capacity(hashmap.len());
-
-            for (key, value) in hashmap {
-                let new_value = eval(value.clone(), env.clone())?;
-                new_ast.insert(key.clone(), new_value);
-            }
-            Ok(MalType::Hashmap(new_ast))
-        }
-        _ => Ok(ast),
-    }
-}
-
-fn apply(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
-    debug!(&ast);
-
-    //eval_ast(ast, env.clone())?
-
-    match ast.clone() {
-        MalType::List(l) => match l[0].clone() {
-            MalType::Symbol(s) if s == "def!" => {
-                let value = eval(l[2].clone(), env.clone())?;
-                env.borrow_mut()
-                    .set(l[1].clone().try_into_symbol()?, value.clone());
-                Ok(value)
-            }
-            MalType::Symbol(s) if s == "let*" => {
-                let new_env = Env::new(None, None, Some(env));
-
-                let bindings_list = l[1].clone().try_into_list()?;
-
-                let bindings = bindings_list.chunks_exact(2);
-
-                for binding in bindings {
-                    let key = binding[0].clone();
-                    let value = eval(binding[1].clone(), new_env.clone())?;
-
-                    {
-                        let mut mut_env = new_env.borrow_mut();
-                        mut_env.set(key.to_string(), value.clone());
-                    }
-                }
-
-                eval(l[2].clone(), new_env)
-            }
-            MalType::Symbol(s) if s == "if" => {
-                let condition = l[1].clone();
-
-                let c_value = eval(condition, env.clone())?;
-
-                match c_value {
-                    MalType::Nil | MalType::False => {
-                        if l.len() < 4 {
-                            return Ok(MalType::Nil);
-                        }
-                        let false_value = l[3].clone();
-                        eval(false_value, env)
-                    }
-                    _ => {
-                        let true_value = l[2].clone();
-                        eval(true_value, env)
-                    }
-                }
-            }
-            MalType::Symbol(s) if s == "fn*" => {
-                let func_parameters = l[1].clone();
-                let func_body = l[2].clone();
-
-                let body = Rc::new(|env: Rc<RefCell<Env>>| -> Result<MalType, MalError> {
-                    return Ok(MalType::Nil);
-                    //return eval(func_body, env.clone());
-                });
-
-                let mal = types::MalFunc::new(
-                    None,
-                    func_parameters.try_into_list()?,
-                    body.clone(),
-                    env.clone(),
-                );
-
-                // let func_env = Env::new(
-                //     Some(func_parameters),
-                //     Some(func_parameters_values),
-                //     Some(env),
-                // );
-
-                return Ok(MalType::Func2(mal));
-            }
-            MalType::Symbol(s) if s == "do" => {
-                let mut value: MalType = MalType::Nil;
-                for i in 1..l.len() {
-                    value = eval_ast(l[i].clone(), env.clone())?;
-                }
-                Ok(value)
-            }
-            MalType::Func(name, func) => {
-                debug!(format!(
-                    "Executing func: {} with {:?} and {:?}",
-                    name,
-                    l[1].clone(),
-                    l[2].clone()
-                ));
-                return Ok(func.as_ref()(l[1].clone(), l[2].clone()));
-            }
-            MalType::Func2(func) => {
-                let params = l[1..l.len()].iter().map(|v| v.clone()).collect();
-                execute(func, params)
-            }
-            _ => {
-                let func_ast = eval_ast(ast, env.clone())?;
-                apply(func_ast, env)
-            }
-        },
-        _ => Err(MalError::ParseError(
-            "eval_ast did not return a list!".to_string(),
-        )),
-    }
-}
-
-pub fn execute(func: types::MalFunc, param_values: Vec<MalType>) -> Result<MalType, MalError> {
-    if func.parameters().len() != param_values.len() {
-        return Err(MalError::IncorrectParamCount(
-            func.name().clone(),
-            func.parameters().len(),
-            param_values.len(),
-        ));
-    }
-
-    let exec_env = Env::new(
-        Some(func.parameters().iter().map(|v| v.clone()).collect()),
-        Some(param_values.clone()),
-        Some(func.env().clone()),
-    );
-
-    {
-        let mut mut_env = exec_env.borrow_mut();
-        for (param, value) in func.parameters().iter().zip(param_values.iter()) {
-            mut_env.set(param.clone().try_into_symbol()?, value.clone());
-        }
-    }
-
-    func.body().as_ref()(exec_env)
-}
-
-fn eval(ast: MalType, env: Rc<RefCell<Env>>) -> Result<MalType, MalError> {
-    debug!(&ast);
-    match ast.clone() {
-        MalType::List(l) => {
-            if l.is_empty() {
-                Ok(ast)
-            } else {
-                apply(ast, env)
-            }
-        }
-        _ => eval_ast(ast, env),
-    }
-}
-
-fn print(input: MalType) -> String {
-    Printer::pr_str(input)
-}
-
-fn add_func(env: Rc<RefCell<Env>>, name: String, value: MalFn) {
-    env.borrow_mut()
-        .set(name.clone(), MalType::Func(name, value))
-}
-
 fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, isize) -> isize) {
     let params = vec![
         MalType::Symbol("a".to_string()),
         MalType::Symbol("b".to_string()),
     ];
 
-    let body = |env: Rc<RefCell<Env>>| {
+    let body = |env: Rc<RefCell<Env>>, _body: Rc<MalType>| -> Result<MalType, MalError> {
         let func_env = env.borrow();
         let a = func_env.get("a".to_string())?.try_into_number()?;
         let b = func_env.get("b".to_string())?.try_into_number()?;
@@ -241,51 +49,22 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
     env.borrow_mut().set(name.clone(), MalType::Func2(malfunc))
 }
 
-fn rep(input: String, env: Rc<RefCell<Env>>) -> Result<String, MalError> {
-    add_func2(env.clone(), "+".to_string(), &|a, b| a + b);
-    add_func2(env.clone(), "-".to_string(), &|a, b| a - b);
-    add_func2(env.clone(), "*".to_string(), &|a, b| a * b);
-    add_func2(env.clone(), "/".to_string(), &|a, b| a / b);
-    // add_func(
-    //     env.clone(),
-    //     "-".to_string(),
-    //     Rc::new(&|a: MalType, b: MalType| {
-    //         MalType::Number(a.try_into_number().unwrap() - b.try_into_number().unwrap())
-    //     }),
-    // );
-    // add_func(
-    //     env.clone(),
-    //     "*".to_string(),
-    //     Rc::new(&|a: MalType, b: MalType| {
-    //         MalType::Number(a.try_into_number().unwrap() * b.try_into_number().unwrap())
-    //     }),
-    // );
-    // add_func(
-    //     env.clone(),
-    //     "/".to_string(),
-    //     Rc::new(&|a: MalType, b: MalType| {
-    //         MalType::Number(a.try_into_number().unwrap() / b.try_into_number().unwrap())
-    //     }),
-    // );
-
-    let read_result = read(input)?;
-    let eval_result = eval(read_result, env)?;
-    Ok(print(eval_result))
-}
-
-type MalFn = Rc<dyn Fn(MalType, MalType) -> MalType>;
-
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
 
-    let env = Env::new(None, None, None);
+    let mut repl = Repl::new(None, None);
+
+    add_func2(repl.env(), "+".to_string(), &|a, b| a + b);
+    add_func2(repl.env(), "-".to_string(), &|a, b| a - b);
+    add_func2(repl.env(), "/".to_string(), &|a, b| a / b);
+    add_func2(repl.env(), "*".to_string(), &|a, b| a * b);
 
     loop {
         let readline = rl.readline("user> ");
 
         match readline {
-            Ok(input) => match rep(input.clone(), env.clone()) {
+            Ok(input) => match repl.rep(input.clone()) {
                 Ok(result) => {
                     println!("{}", result);
                     rl.add_history_entry(input);
