@@ -25,10 +25,10 @@ impl MalCore {
             Self::print_str(a, "", false, false, true)
         });
         Self::add_param_list_func(env.clone(), "prn", &|a| {
-            Self::print_str(a, "", true, true, false)
+            Self::print_str(a, " ", true, true, false)
         });
         Self::add_param_list_func(env.clone(), "println", &|a| {
-            Self::print_str(a, "", false, true, false)
+            Self::print_str(a, " ", false, true, false)
         });
 
         Self::add_param_list_func(env.clone(), "list", &|a| Ok(Rc::new(MalType::List(a))));
