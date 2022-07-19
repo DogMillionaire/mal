@@ -26,6 +26,7 @@ pub struct MalFunc {
     body: Option<Box<MalFn>>,
     env: Rc<RefCell<Env>>,
     body_ast: Rc<MalType>,
+    fully_evaluate: bool,
 }
 
 impl std::fmt::Debug for MalFunc {
@@ -65,6 +66,7 @@ impl MalFunc {
             body: None,
             env,
             body_ast,
+            fully_evaluate: false,
         }
     }
     pub fn new_with_closure(
@@ -87,6 +89,7 @@ impl MalFunc {
             body: Some(Box::new(body)),
             env,
             body_ast,
+            fully_evaluate: false,
         }
     }
 
@@ -108,6 +111,14 @@ impl MalFunc {
 
     pub fn body(&self) -> Option<&Box<MalFn>> {
         self.body.as_ref()
+    }
+
+    pub fn fully_evaluate(&self) -> bool {
+        self.fully_evaluate
+    }
+
+    pub fn set_fully_evaluate(&mut self, fully_evaluate: bool) {
+        self.fully_evaluate = fully_evaluate;
     }
 }
 
@@ -279,6 +290,14 @@ impl MalType {
                 self.type_name(),
             ))
         }
+    }
+
+    /// Returns `true` if the mal type is [`Func`].
+    ///
+    /// [`Func`]: MalType::Func
+    #[must_use]
+    pub fn is_func(&self) -> bool {
+        matches!(self, Self::Func(..))
     }
 }
 

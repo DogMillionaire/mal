@@ -124,7 +124,7 @@ impl MalCore {
             let value = atom.try_into_atom()?;
             Ok(value.borrow().clone())
         });
-        Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
+        Self::add_binary_func(env, "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
             atom.replace(val2.clone());
             Ok(val2)
@@ -254,19 +254,22 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
-            let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
-            let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
+            let _func_env = Env::new_with_outer(Some(params), Some(param_values.clone()), env);
+            let a = param_values[0].clone().try_into_number()?;
+            let b = param_values[1].clone().try_into_number()?;
             Ok(Rc::new(MalType::Number(func(a, b))))
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+        let mut func = MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
             env.clone(),
             Rc::new(MalType::Nil),
-        )));
+        );
+        func.set_fully_evaluate(true);
+
+        let malfunc = Rc::new(MalType::Func(func));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }

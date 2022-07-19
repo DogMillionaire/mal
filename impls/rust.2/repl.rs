@@ -167,22 +167,23 @@ impl Repl {
                     }
                     MalType::Symbol(s) if s == "swap!" => {
                         let atom_symbol = l[1].clone().try_into_symbol()?;
-                        let atom_type = current_env.borrow().get(atom_symbol.to_string())?;
+                        let atom_type = current_env.borrow().get(atom_symbol)?;
                         let atom = atom_type.try_into_atom()?;
                         let func = l[2].clone();
 
                         let atom_value = atom.borrow().clone();
 
                         let mut func_ast = vec![func, atom_value];
-                        l[2..].iter().for_each(|f| func_ast.push(f.clone()));
+                        l[3..].iter().for_each(|f| func_ast.push(f.clone()));
 
-                        let new_value = Self::eval(MalType::list(func_ast), current_env.clone())?;
+                        let new_value = Self::eval(MalType::list(func_ast), current_env)?;
                         atom.replace(new_value.clone());
 
                         return Ok(new_value);
                     }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();
+
                         if let Some(f) = func.body() {
                             return f(
                                 func.env(),

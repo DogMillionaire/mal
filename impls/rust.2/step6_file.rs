@@ -5,6 +5,8 @@ mod reader;
 mod repl;
 mod types;
 
+use std::rc::Rc;
+
 use reader::MalError;
 
 use crate::repl::Repl;
@@ -27,14 +29,25 @@ fn main() {
     )
     .expect("Fail to parse def! load-file");
 
-    let arg_list: Vec<_> = args[1..]
-        .iter()
-        .map(|a| MalType::string(a.to_string()))
-        .collect();
+    let mut arg_list: Vec<Rc<MalType>> = vec![];
+    if args.len() >= 2 {
+        arg_list = args[2..]
+            .iter()
+            .map(|a| MalType::string(a.to_string()))
+            .collect();
+    }
 
     repl.env()
         .borrow_mut()
         .set(String::from("*ARGV*"), MalType::list(arg_list));
+
+    if let Some(file) = args.iter().nth(1) {
+        match repl.rep(format!("(load-file \"{}\")", file)) {
+            Ok(_) => {}
+            Err(err) => eprintln!("ERROR: {}", err),
+        }
+        return;
+    }
 
     loop {
         let readline = rl.readline("user> ");
