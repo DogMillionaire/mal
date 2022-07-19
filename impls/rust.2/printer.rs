@@ -25,6 +25,7 @@ impl Display for MalType {
                 f.write_str(&format!("{{{}}}", values.join(" ")))
             }
             MalType::Func(name, _) => f.write_str(&format!("#<function:{}>", name)),
+            MalType::Func2(func) => f.write_str(&format!("#<function:{}>", func.name())),
             MalType::True => f.write_str("true"),
             MalType::False => f.write_str("false"),
         }

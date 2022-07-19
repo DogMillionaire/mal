@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;
@@ -13,15 +14,44 @@ pub enum MalType {
     Keyword(String),
     Hashmap(HashMap<MalType, MalType>),
     Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
+    Func2(MalFunc),
     True,
     False,
 }
 
+/// Wrapper for a function
 pub struct MalFunc {
     name: String,
     parameters: Vec<MalType>,
     body: Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>>,
     env: Rc<RefCell<Env>>,
+}
+
+impl std::fmt::Debug for MalFunc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MalFunc")
+            .field("name", &self.name)
+            .field("parameters", &self.parameters)
+            .finish()
+    }
+}
+
+impl Hash for MalFunc {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.parameters.hash(state);
+    }
+}
+
+impl Clone for MalFunc {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            parameters: self.parameters.clone(),
+            body: self.body.clone(),
+            env: self.env.clone(),
+        }
+    }
 }
 
 impl MalFunc {
@@ -40,33 +70,20 @@ impl MalFunc {
         }
     }
 
-    pub fn execute(&self, param_values: Vec<MalType>) -> Result<MalType, MalError> {
-        if self.parameters.len() != param_values.len() {
-            return Err(MalError::IncorrectParamCount(
-                self.name.clone(),
-                self.parameters.len(),
-                param_values.len(),
-            ));
-        }
-
-        let exec_env = Env::new(
-            Some(self.parameters.clone()),
-            Some(param_values.clone()),
-            Some(self.env.clone()),
-        );
-
-        {
-            let mut mut_env = exec_env.borrow_mut();
-            for (param, value) in self.parameters.iter().zip(param_values.iter()) {
-                mut_env.set(param.clone().try_into_symbol()?, value.clone());
-            }
-        }
-
-        self.body.as_ref()(exec_env)
-    }
-
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+
+    pub fn parameters(&self) -> &[MalType] {
+        self.parameters.as_ref()
+    }
+
+    pub fn body(&self) -> Rc<dyn Fn(Rc<RefCell<Env>>) -> Result<MalType, MalError>> {
+        self.body.clone()
+    }
+
+    pub fn env(&self) -> Rc<RefCell<Env>> {
+        self.env.clone()
     }
 }
 
@@ -128,6 +145,7 @@ impl Clone for MalType {
             Self::Keyword(arg0) => Self::Keyword(arg0.clone()),
             Self::Hashmap(arg0) => Self::Hashmap(arg0.clone()),
             Self::Func(arg0, arg1) => Self::Func(arg0.clone(), arg1.clone()),
+            Self::Func2(arg0) => Self::Func2(arg0.clone()),
             Self::True => Self::True,
             Self::False => Self::False,
         }
@@ -162,6 +180,7 @@ impl std::fmt::Debug for MalType {
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
             Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::Func2(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
         }
@@ -185,6 +204,7 @@ impl std::hash::Hash for MalType {
                 }
             }
             MalType::Func(name, _) => name.hash(state),
+            MalType::Func2(func) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
         }

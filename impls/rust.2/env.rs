@@ -24,7 +24,7 @@ impl Env {
             (Some(b), Some(e)) => {
                 for (binding, expression) in b.iter().zip(e.iter()) {
                     env.set(
-                        binding.clone().try_into_string().unwrap(),
+                        binding.clone().try_into_symbol().unwrap(),
                         expression.clone(),
                     );
                 }
