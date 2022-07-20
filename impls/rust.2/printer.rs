@@ -32,8 +32,8 @@ impl Display for MalType {
 }
 
 impl Printer {
-    pub fn pr_str(data: &MalType, print_readonly: bool) -> String {
-        let mut formatted = format!("{}", data);
+    pub fn pr_str(data: &MalType, _print_readonly: bool) -> String {
+        let formatted = format!("{}", data);
         // if print_readonly {
         //     formatted = formatted.replace(r#"""#, r#"\""#);
         //     formatted = formatted.replace("\n", "\\n");

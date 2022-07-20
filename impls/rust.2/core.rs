@@ -49,51 +49,51 @@ impl Core {
         });
         Self::add_unary_func(env.clone(), "count", &|a| {
             Ok(Rc::new(MalType::Number(
-                a.try_into_list().unwrap_or(Vec::new()).len() as isize,
+                a.try_into_list().unwrap_or_default().len() as isize,
             )))
         });
         Self::add_binary_func(env.clone(), "<", &|a, b| {
             let lhs = a.try_into_number()?;
             let rhs = b.try_into_number()?;
-            return if lhs < rhs {
+            if lhs < rhs {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
-            };
+            }
         });
         Self::add_binary_func(env.clone(), "<=", &|a, b| {
             let lhs = a.try_into_number()?;
             let rhs = b.try_into_number()?;
-            return if lhs <= rhs {
+            if lhs <= rhs {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
-            };
+            }
         });
         Self::add_binary_func(env.clone(), ">", &|a, b| {
             let lhs = a.try_into_number()?;
             let rhs = b.try_into_number()?;
-            return if lhs > rhs {
+            if lhs > rhs {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
-            };
+            }
         });
         Self::add_binary_func(env.clone(), ">=", &|a, b| {
             let lhs = a.try_into_number()?;
             let rhs = b.try_into_number()?;
-            return if lhs >= rhs {
+            if lhs >= rhs {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
-            };
+            }
         });
-        Self::add_binary_func(env.clone(), "=", &|a, b| {
-            return if a == b {
+        Self::add_binary_func(env, "=", &|a, b| {
+            if a == b {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
-            };
+            }
         });
 
         instance
@@ -116,11 +116,11 @@ impl Core {
             println!("{}", data);
         }
 
-        return if return_data {
+        if return_data {
             Ok(Rc::new(MalType::String(data)))
         } else {
             Ok(Rc::new(MalType::Nil))
-        };
+        }
     }
 
     fn add_param_list_func(
@@ -128,7 +128,7 @@ impl Core {
         name: &str,
         func: &'static dyn Fn(Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>,
     ) {
-        let body = |env: Rc<RefCell<Env>>,
+        let body = |_env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
                     params: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> { func(params) };
@@ -262,6 +262,6 @@ impl Core {
         );
 
         env.borrow_mut()
-            .set(name.clone(), Rc::new(MalType::Func(malfunc)))
+            .set(name, Rc::new(MalType::Func(malfunc)))
     }
 }

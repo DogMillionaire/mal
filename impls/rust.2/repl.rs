@@ -67,16 +67,16 @@ impl Repl {
     ) -> Result<Rc<MalType>, MalError> {
         if func.parameters().len() > param_values.len() {
             return Err(MalError::IncorrectParamCount(
-                func.name().clone(),
+                func.name(),
                 func.parameters().len(),
                 param_values.len(),
             ));
         }
 
         let exec_env = Env::new(
-            Some(func.parameters().iter().map(|v| v.clone()).collect()),
+            Some(func.parameters().to_vec()),
             Some(param_values.clone()),
-            Some(func.env().clone()),
+            Some(func.env()),
         );
 
         {
@@ -148,15 +148,15 @@ impl Repl {
                                 body_ast: Rc<MalType>,
                                 _params: Vec<Rc<MalType>>|
                      -> Result<Rc<MalType>, MalError> {
-                        return Self::eval(body_ast.clone(), env);
+                        Self::eval(body_ast, env)
                     };
 
                     let mal = types::MalFunc::new(
                         None,
                         func_parameters.try_into_list()?,
                         body,
-                        env.clone(),
-                        func_body.clone(),
+                        env,
+                        func_body,
                     );
 
                     // let func_env = Env::new(
@@ -165,7 +165,7 @@ impl Repl {
                     //     Some(env),
                     // );
 
-                    return Ok(Rc::new(MalType::Func(mal)));
+                    Ok(Rc::new(MalType::Func(mal)))
                 }
                 MalType::Symbol(s) if s == "do" => {
                     let mut value: Rc<MalType> = Rc::new(MalType::Nil);
@@ -175,7 +175,7 @@ impl Repl {
                     Ok(value)
                 }
                 MalType::Func(func) => {
-                    let params = l[1..l.len()].iter().map(|v| v.clone()).collect();
+                    let params = l[1..l.len()].to_vec();
                     Self::execute(func, params)
                 }
                 _ => {

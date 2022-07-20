@@ -446,7 +446,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result.clone().as_ref(), MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l) => {
             assert_eq!(2, l.len());
             assert_matches!(l[0].as_ref(), MalType::List(_));
             assert_matches!(l[0].as_ref(), MalType::List(_));

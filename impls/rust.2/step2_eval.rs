@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use env::Env;
 use reader::MalError;
-use types::MalFn;
+
 
 use crate::printer::Printer;
 use crate::reader::Reader;
@@ -84,13 +84,13 @@ fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError
                 let f = func.unwrap();
 
                 let lhs = eval(l[1].clone(), env.clone())?;
-                let rhs = eval(l[2].clone(), env.clone())?;
+                let rhs = eval(l[2].clone(), env)?;
                 let param_values = vec![lhs, rhs];
 
                 let exec_env = Env::new(
-                    Some(f.parameters().iter().map(|v| v.clone()).collect()),
+                    Some(f.parameters().to_vec()),
                     Some(param_values.clone()),
-                    Some(f.env().clone()),
+                    Some(f.env()),
                 );
 
                 {

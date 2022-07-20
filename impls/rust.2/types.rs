@@ -157,7 +157,7 @@ impl MalType {
             }
         }
 
-        return true;
+        true
     }
 
     pub fn as_func(&self) -> Option<&MalFunc> {

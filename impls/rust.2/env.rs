@@ -36,7 +36,7 @@ impl Env {
     }
 
     pub fn set(&mut self, key: String, value: Rc<MalType>) {
-        self.data.insert(key, value.clone());
+        self.data.insert(key, value);
     }
 
     // fn find(&self, key: String) -> Result<Rc<RefCell<&Env>>, MalError> {

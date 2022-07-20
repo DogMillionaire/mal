@@ -6,14 +6,14 @@ mod repl;
 mod types;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+
 use std::rc::Rc;
 
 use env::Env;
 use reader::MalError;
 
-use crate::printer::Printer;
-use crate::reader::Reader;
+
+
 use crate::repl::Repl;
 use crate::types::MalType;
 
@@ -57,7 +57,7 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
     );
 
     env.borrow_mut()
-        .set(name.clone(), Rc::new(MalType::Func(malfunc)))
+        .set(name, Rc::new(MalType::Func(malfunc)))
 }
 
 fn main() {
