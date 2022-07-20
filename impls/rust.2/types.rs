@@ -288,6 +288,14 @@ impl MalType {
     pub fn is_func(&self) -> bool {
         matches!(self, Self::Func(..))
     }
+
+    /// Returns `true` if the mal type is [`Symbol`].
+    ///
+    /// [`Symbol`]: MalType::Symbol
+    #[must_use]
+    pub fn is_symbol(&self) -> bool {
+        matches!(self, Self::Symbol(..))
+    }
 }
 
 impl Eq for MalType {
