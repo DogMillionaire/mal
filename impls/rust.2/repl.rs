@@ -188,6 +188,10 @@ impl Repl {
                         current_ast = Self::quasiquote(l[1].clone(), current_env.clone())?;
                     }
                     MalType::Symbol(s) if s == "quasiquoteexpand" => {
+                        // current_ast = MalType::list(vec![
+                        //     MalType::symbol("quasiquote".to_string()),
+                        //     l[1].clone(),
+                        // ]);
                         return Self::quasiquote(l[1].clone(), current_env.clone());
                     }
                     MalType::Func(func) => {
@@ -280,6 +284,22 @@ impl Repl {
 
                     return Ok(current_result);
                 }
+            }
+            MalType::Vector(v) => {
+                if v.is_empty() {
+                    return Ok(MalType::list(vec![
+                        MalType::symbol("vec".to_string()),
+                        MalType::list(vec![]),
+                    ]));
+                }
+                let mut result_list = vec![MalType::symbol("vec".to_string())];
+                let result = Self::quasiquote(MalType::list(v.clone()), env.clone())?;
+
+                result
+                    .get_as_vec()?
+                    .iter()
+                    .for_each(|v| result_list.push(v.clone()));
+                return Ok(MalType::list(result_list));
             }
             MalType::Symbol(_) | MalType::Hashmap(_) => {
                 // If ast is a map or a symbol, return a list containing: the "quote" symbol, then ast.
