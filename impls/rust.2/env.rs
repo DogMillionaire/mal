@@ -2,13 +2,16 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{MalError, MalType};
 
+#[allow(dead_code)]
 pub struct Env {
     outer: Option<Rc<RefCell<Env>>>,
     data: HashMap<String, Rc<MalType>>,
 }
 
+#[allow(dead_code)]
 pub type MalEnv = Rc<RefCell<Env>>;
 
+#[allow(dead_code)]
 impl Env {
     pub fn new(
         bindings: Option<Vec<Rc<MalType>>>,
@@ -25,8 +28,7 @@ impl Env {
                 for i in 0..b.len() {
                     let binding_symbol = b[i].try_into_symbol().unwrap();
                     if binding_symbol == "&" {
-                        let remaining_exprs: Vec<_> =
-                            e[i..e.len()].iter().map(|v| v.clone()).collect();
+                        let remaining_exprs: Vec<_> = e[i..e.len()].to_vec();
 
                         env.set(
                             b[i + 1].try_into_symbol().unwrap(),

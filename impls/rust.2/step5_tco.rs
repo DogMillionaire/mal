@@ -5,43 +5,26 @@ mod reader;
 mod repl;
 mod types;
 
-use std::rc::Rc;
-
 use reader::MalError;
 
-use crate::printer::Printer;
-use crate::reader::Reader;
+use crate::repl::Repl;
 use crate::types::MalType;
-
-fn read(input: String) -> Result<Rc<MalType>, MalError> {
-    let mut reader = Reader::read_str(input)?;
-
-    //eprintln!("Read reult: {:?}", result);
-    reader.read_form()
-}
-
-fn eval(input: Rc<MalType>) -> Rc<MalType> {
-    input
-}
-
-fn print(input: Rc<MalType>) -> String {
-    Printer::pr_str(&input, true)
-}
-
-fn rep(input: String) -> Result<String, MalError> {
-    let read_result = read(input)?;
-    let eval_result = eval(read_result);
-    Ok(print(eval_result))
-}
 
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
+
+    let mut repl = Repl::new(None, None);
+
+    malcore::MalCore::add_to_env(repl.env());
+    repl.rep("(def! not (fn* (a) (if a false true)))".to_string())
+        .expect("Fail to parse def! not");
+
     loop {
         let readline = rl.readline("user> ");
 
         match readline {
-            Ok(input) => match rep(input.clone()) {
+            Ok(input) => match repl.rep(input.clone()) {
                 Ok(result) => {
                     println!("{}", result);
                     rl.add_history_entry(input);

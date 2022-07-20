@@ -1,4 +1,5 @@
 mod env;
+mod malcore;
 mod printer;
 mod reader;
 mod repl;
@@ -22,15 +23,16 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
 
     let body = |env: Rc<RefCell<Env>>,
                 _body: Rc<MalType>,
-                _params: Vec<Rc<MalType>>|
+                params: Vec<Rc<MalType>>,
+                param_values: Vec<Rc<MalType>>|
      -> Result<Rc<MalType>, MalError> {
-        let func_env = env.borrow();
-        let a = func_env.get("a".to_string())?.try_into_number()?;
-        let b = func_env.get("b".to_string())?.try_into_number()?;
+        let func_env = Env::new(Some(params), Some(param_values), Some(env));
+        let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
+        let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
         Ok(Rc::new(MalType::Number(value(a, b))))
     };
 
-    let malfunc = types::MalFunc::new(
+    let malfunc = types::MalFunc::new_with_closure(
         Some(name.clone()),
         params,
         body,
@@ -38,8 +40,7 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
         Rc::new(MalType::Nil),
     );
 
-    env.borrow_mut()
-        .set(name, Rc::new(MalType::Func(malfunc)))
+    env.borrow_mut().set(name, Rc::new(MalType::Func(malfunc)))
 }
 
 fn main() {

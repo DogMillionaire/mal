@@ -100,7 +100,7 @@ fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError
                     }
                 }
 
-                f.body()(exec_env, Rc::new(MalType::Nil), vec![])
+                f.body().unwrap()(exec_env, Rc::new(MalType::Nil), vec![], vec![])
             }
         }
         _ => eval_ast(ast, env),
@@ -123,7 +123,8 @@ fn add_numeric_func(
 
     let body = |env: Rc<RefCell<Env>>,
                 _body: Rc<MalType>,
-                _params: Vec<Rc<MalType>>|
+                _params: Vec<Rc<MalType>>,
+                _param_values: Vec<Rc<MalType>>|
      -> Result<Rc<MalType>, MalError> {
         let func_env = env.borrow();
         let a = func_env.get("a".to_string())?.try_into_number()?;
@@ -131,7 +132,7 @@ fn add_numeric_func(
         Ok(Rc::new(MalType::Number(func(a, b))))
     };
 
-    let malfunc = Rc::new(MalType::Func(MalFunc::new(
+    let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
         Some(name.to_string()),
         params,
         body,
@@ -155,6 +156,7 @@ fn rep(input: String) -> Result<String, MalError> {
     Ok(print(eval_result))
 }
 
+#[allow(dead_code)]
 type NumericFn = Rc<dyn Fn(Rc<MalType>, Rc<MalType>) -> Rc<MalType>>;
 
 fn main() {
