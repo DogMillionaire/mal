@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;

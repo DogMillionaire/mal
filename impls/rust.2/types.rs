@@ -45,6 +45,9 @@ impl Hash for MalFunc {
     }
 }
 
+pub type MalFn =
+    dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>;
+
 impl MalFunc {
     pub fn new(
         name: Option<String>,
@@ -155,6 +158,14 @@ impl MalType {
         }
 
         return true;
+    }
+
+    pub fn as_func(&self) -> Option<&MalFunc> {
+        if let Self::Func(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
