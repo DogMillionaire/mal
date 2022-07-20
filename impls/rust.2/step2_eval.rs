@@ -1,15 +1,20 @@
+mod env;
+mod malcore;
 mod printer;
 mod reader;
+mod repl;
 mod types;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use env::Env;
 use reader::MalError;
 
 use crate::printer::Printer;
 use crate::reader::Reader;
-use crate::types::MalType;
+use crate::types::{MalFunc, MalType};
 
 #[allow(unused_must_use)]
 #[cfg(debug_assertions)]
@@ -26,119 +31,131 @@ macro_rules! debug {
     };
 }
 
-fn read(input: String) -> Result<MalType, MalError> {
+fn read(input: String) -> Result<Rc<MalType>, MalError> {
     let mut reader = Reader::read_str(input)?;
     let result = reader.read_form();
     debug!(&result);
     result
 }
 
-fn eval_ast(ast: MalType, env: &HashMap<String, NumericFn>) -> Result<MalType, MalError> {
+fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
     debug!(&ast);
-    match ast {
-        MalType::Symbol(name) => match env.get(&name) {
-            Some(v) => Ok(MalType::Func(name, v.clone())),
-            None => Err(MalError::SymbolNotFound(name)),
-        },
+    match ast.as_ref() {
+        MalType::Symbol(name) => env.borrow().get(name.to_string()),
         MalType::List(list) => {
-            let mut new_ast: Vec<MalType> = Vec::with_capacity(list.len());
+            let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(list.len());
             for value in list {
-                let new_value = eval(value.clone(), env)?;
+                let new_value = eval(value.clone(), env.clone())?;
                 new_ast.push(new_value);
             }
-            Ok(MalType::List(new_ast))
+            Ok(Rc::new(MalType::List(new_ast)))
         }
         MalType::Vector(vector) => {
-            let mut new_ast: Vec<MalType> = Vec::with_capacity(vector.len());
+            let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
             for value in vector {
-                let new_value = eval(value.clone(), env)?;
+                let new_value = eval(value.clone(), env.clone())?;
                 new_ast.push(new_value);
             }
-            Ok(MalType::Vector(new_ast))
+            Ok(Rc::new(MalType::Vector(new_ast)))
         }
         MalType::Hashmap(hashmap) => {
-            let mut new_ast: HashMap<MalType, MalType> = HashMap::with_capacity(hashmap.len());
+            let mut new_ast: HashMap<Rc<MalType>, Rc<MalType>> =
+                HashMap::with_capacity(hashmap.len());
 
             for (key, value) in hashmap {
-                let new_value = eval(value.clone(), env)?;
+                let new_value = eval(value.clone(), env.clone())?;
                 new_ast.insert(key.clone(), new_value);
             }
-            Ok(MalType::Hashmap(new_ast))
+            Ok(Rc::new(MalType::Hashmap(new_ast)))
         }
         _ => Ok(ast),
     }
 }
 
-fn call_func(ast: MalType) -> Result<MalType, MalError> {
-    match ast.clone() {
-        MalType::List(l) => {
-            assert!(
-                l.len() >= 3,
-                "Expected eval_ast to retun a list with at least 3 elements"
-            );
-            if let MalType::Func(name, func) = l[0].clone() {
-                debug!(format!(
-                    "Executing func: {} with {:?} and {:?}",
-                    name,
-                    l[1].clone(),
-                    l[2].clone()
-                ));
-                return Ok(func.as_ref()(l[1].clone(), l[2].clone()));
-            }
-            Err(MalError::ParseError(
-                "First list element was not a function!".to_string(),
-            ))
-        }
-        _ => Err(MalError::ParseError(
-            "eval_ast did not return a list!".to_string(),
-        )),
-    }
-}
-
-fn eval(ast: MalType, env: &HashMap<String, NumericFn>) -> Result<MalType, MalError> {
+fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
     debug!(&ast);
-    match ast.clone() {
+    match ast.clone().as_ref() {
         MalType::List(l) => {
             if l.is_empty() {
                 Ok(ast)
             } else {
-                call_func(eval_ast(ast, env)?)
+                let func_ast = eval_ast(l[0].clone(), env.clone())?;
+                let func = func_ast.as_func();
+                let f = func.unwrap();
+
+                let lhs = eval(l[1].clone(), env.clone())?;
+                let rhs = eval(l[2].clone(), env)?;
+                let param_values = vec![lhs, rhs];
+
+                let exec_env = Env::new(
+                    Some(f.parameters().to_vec()),
+                    Some(param_values.clone()),
+                    Some(f.env()),
+                );
+
+                {
+                    let mut mut_env = exec_env.borrow_mut();
+                    for (param, value) in f.parameters().iter().zip(param_values.iter()) {
+                        mut_env.set(param.clone().try_into_symbol()?, value.clone());
+                    }
+                }
+
+                f.body()(exec_env, Rc::new(MalType::Nil), vec![])
             }
         }
         _ => eval_ast(ast, env),
     }
 }
 
-fn print(input: MalType) -> String {
-    Printer::pr_str(input)
+fn print(input: Rc<MalType>) -> String {
+    Printer::pr_str(&input, true)
+}
+
+fn add_numeric_func(
+    env: Rc<RefCell<Env>>,
+    name: &str,
+    func: &'static dyn Fn(isize, isize) -> isize,
+) {
+    let params = vec![
+        Rc::new(MalType::Symbol("a".to_string())),
+        Rc::new(MalType::Symbol("b".to_string())),
+    ];
+
+    let body = |env: Rc<RefCell<Env>>,
+                _body: Rc<MalType>,
+                _params: Vec<Rc<MalType>>|
+     -> Result<Rc<MalType>, MalError> {
+        let func_env = env.borrow();
+        let a = func_env.get("a".to_string())?.try_into_number()?;
+        let b = func_env.get("b".to_string())?.try_into_number()?;
+        Ok(Rc::new(MalType::Number(func(a, b))))
+    };
+
+    let malfunc = Rc::new(MalType::Func(MalFunc::new(
+        Some(name.to_string()),
+        params,
+        body,
+        env.clone(),
+        Rc::new(MalType::Nil),
+    )));
+
+    env.borrow_mut().set(name.to_string(), malfunc);
 }
 
 fn rep(input: String) -> Result<String, MalError> {
-    let mut env: HashMap<String, NumericFn> = HashMap::new();
+    let env = env::Env::new(None, None, None);
 
-    env.insert(
-        "+".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) + isize::from(b))),
-    );
-    env.insert(
-        "-".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) - isize::from(b))),
-    );
-    env.insert(
-        "/".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) / isize::from(b))),
-    );
-    env.insert(
-        "*".to_string(),
-        Rc::new(&|a, b| MalType::Number(isize::from(a) * isize::from(b))),
-    );
+    add_numeric_func(env.clone(), "+", &|a, b| a + b);
+    add_numeric_func(env.clone(), "-", &|a, b| a - b);
+    add_numeric_func(env.clone(), "/", &|a, b| a / b);
+    add_numeric_func(env.clone(), "*", &|a, b| a * b);
 
     let read_result = read(input)?;
-    let eval_result = eval(read_result, &env)?;
+    let eval_result = eval(read_result, env)?;
     Ok(print(eval_result))
 }
 
-type NumericFn = Rc<dyn Fn(MalType, MalType) -> MalType>;
+type NumericFn = Rc<dyn Fn(Rc<MalType>, Rc<MalType>) -> Rc<MalType>>;
 
 fn main() {
     let mut rl = rustyline::Editor::<()>::new();

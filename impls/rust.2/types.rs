@@ -1,43 +1,193 @@
-use std::{collections::HashMap, rc::Rc};
+use std::hash::Hash;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use crate::env::Env;
+use crate::reader::MalError;
 
 pub enum MalType {
     Nil,
-    List(Vec<MalType>),
+    List(Vec<Rc<MalType>>),
     Symbol(String),
     Number(isize),
     String(String),
-    Vector(Vec<MalType>),
+    Vector(Vec<Rc<MalType>>),
     Keyword(String),
-    Hashmap(HashMap<MalType, MalType>),
-    Func(String, Rc<dyn Fn(MalType, MalType) -> MalType>),
+    Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
+    Func(MalFunc),
+    True,
+    False,
 }
 
-impl From<MalType> for String {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::String(s) => s,
-            MalType::Symbol(sym) => sym,
-            t => panic!("Can't convert {:?} into a String", t),
-        }
+/// Wrapper for a function
+pub struct MalFunc {
+    name: String,
+    parameters: Vec<Rc<MalType>>,
+    body: Box<
+        dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>,
+    >,
+    env: Rc<RefCell<Env>>,
+    body_ast: Rc<MalType>,
+}
+
+impl std::fmt::Debug for MalFunc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MalFunc")
+            .field("name", &self.name)
+            .field("parameters", &self.parameters)
+            .finish()
     }
 }
 
-impl From<MalType> for isize {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::Number(n) => n,
-            t => panic!("Can't convert {:?} into an isize", t),
-        }
+impl Hash for MalFunc {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.parameters.hash(state);
     }
 }
 
-impl From<MalType> for Vec<MalType> {
-    fn from(mal_type: MalType) -> Self {
-        match mal_type {
-            MalType::List(l) => l,
-            MalType::Vector(v) => v,
-            t => panic!("Can't convert {:?} into an Vec<MalType>", t),
+pub type MalFn =
+    dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>;
+
+impl MalFunc {
+    pub fn new(
+        name: Option<String>,
+        parameters: Vec<Rc<MalType>>,
+        body: impl Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
+            + 'static,
+        env: Rc<RefCell<Env>>,
+        body_ast: Rc<MalType>,
+    ) -> Self {
+        let name = name.unwrap_or(String::from("anonymous"));
+        Self {
+            name,
+            parameters,
+            body: Box::new(body),
+            env,
+            body_ast,
         }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn parameters(&self) -> &[Rc<MalType>] {
+        self.parameters.as_ref()
+    }
+
+    pub fn body(
+        &self,
+    ) -> &dyn Fn(Rc<RefCell<Env>>, Rc<MalType>, Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError>
+    {
+        self.body.as_ref()
+    }
+
+    pub fn env(&self) -> Rc<RefCell<Env>> {
+        self.env.clone()
+    }
+
+    pub fn body_ast(&self) -> Rc<MalType> {
+        self.body_ast.clone()
+    }
+}
+
+impl MalType {
+    pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
+        match self {
+            Self::List(v) => Ok(v.clone()),
+            Self::Vector(v) => Ok(v.clone()),
+            _ => Err(MalError::InvalidType),
+        }
+    }
+
+    pub fn try_into_symbol(&self) -> Result<String, MalError> {
+        if let Self::Symbol(v) = self {
+            Ok(v.to_string())
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_number(&self) -> Result<isize, MalError> {
+        if let Self::Number(v) = self {
+            Ok(*v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_string(&self) -> Result<String, MalError> {
+        if let Self::String(v) = self {
+            Ok(v.to_string())
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    pub fn try_into_vector(self) -> Result<Vec<Rc<MalType>>, MalError> {
+        if let Self::Vector(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    /// Returns `true` if the mal type is [`List`].
+    ///
+    /// [`List`]: MalType::List
+    #[must_use]
+    pub fn is_list(&self) -> bool {
+        matches!(self, Self::List(..))
+    }
+
+    fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
+        let (this_vec, other_vec) = match (this, other) {
+            (MalType::List(l1), MalType::List(l2)) => (l1, l2),
+            (MalType::List(l1), MalType::Vector(l2)) => (l1, l2),
+            (MalType::Vector(l1), MalType::Vector(l2)) => (l1, l2),
+            (MalType::Vector(l1), MalType::List(l2)) => (l1, l2),
+            _ => unreachable!(),
+        };
+
+        if this_vec.len() != other_vec.len() {
+            return false;
+        }
+
+        for (this_val, other_val) in this_vec.iter().zip(other_vec.iter()) {
+            if this_val != other_val {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn as_func(&self) -> Option<&MalFunc> {
+        if let Self::Func(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the mal type is [`String`].
+    ///
+    /// [`String`]: MalType::String
+    #[must_use]
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(..))
+    }
+
+    pub fn number(number: isize) -> Rc<MalType> {
+        Rc::new(MalType::Number(number))
+    }
+
+    pub fn list(values: Vec<Rc<MalType>>) -> Rc<MalType> {
+        Rc::new(MalType::List(values))
+    }
+
+    pub fn symbol(symbol: String) -> Rc<MalType> {
+        Rc::new(MalType::Symbol(symbol))
     }
 }
 
@@ -45,33 +195,18 @@ impl Eq for MalType {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl Clone for MalType {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Nil => Self::Nil,
-            Self::List(arg0) => Self::List(arg0.clone()),
-            Self::Symbol(arg0) => Self::Symbol(arg0.clone()),
-            Self::Number(arg0) => Self::Number(arg0.clone()),
-            Self::String(arg0) => Self::String(arg0.clone()),
-            Self::Vector(arg0) => Self::Vector(arg0.clone()),
-            Self::Keyword(arg0) => Self::Keyword(arg0.clone()),
-            Self::Hashmap(arg0) => Self::Hashmap(arg0.clone()),
-            Self::Func(arg0, arg1) => Self::Func(arg0.clone(), arg1.clone()),
-        }
-    }
-}
-
 impl PartialEq for MalType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::List(l0), Self::List(r0)) => l0 == r0,
+            (Self::List(_), Self::List(_))
+            | (Self::List(_), Self::Vector(_))
+            | (Self::Vector(_), Self::Vector(_))
+            | (Self::Vector(_), Self::List(_)) => MalType::compare_as_vec(self, other),
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
-            (Self::Vector(l0), Self::Vector(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
             (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
-            (Self::Func(l0, _), Self::Func(r0, _)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -88,7 +223,9 @@ impl std::fmt::Debug for MalType {
             Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
-            Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::True => write!(f, "True"),
+            Self::False => write!(f, "False"),
         }
     }
 }
@@ -109,7 +246,26 @@ impl std::hash::Hash for MalType {
                     entry.1.hash(state);
                 }
             }
-            MalType::Func(name, _) => name.hash(state),
+            MalType::Func(func) => func.hash(state),
+            MalType::True => core::mem::discriminant(self).hash(state),
+            MalType::False => core::mem::discriminant(self).hash(state),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::{reader::Reader, types::MalType};
+    use assert_matches::assert_matches;
+
+    #[test]
+    fn match_vector_list() {
+        let elements = vec![Rc::new(MalType::Number(1)), Rc::new(MalType::Number(2))];
+        let list = MalType::List(elements.clone());
+        let vector = MalType::Vector(elements);
+
+        assert_eq!(list, vector);
     }
 }

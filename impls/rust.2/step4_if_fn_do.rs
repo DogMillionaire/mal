@@ -1,4 +1,5 @@
 mod env;
+mod malcore;
 mod printer;
 mod reader;
 mod repl;
@@ -13,6 +14,21 @@ use reader::MalError;
 
 use crate::repl::Repl;
 use crate::types::MalType;
+
+#[allow(unused_must_use)]
+#[cfg(debug_assertions)]
+macro_rules! debug {
+    ($x:expr) => {
+        dbg!($x)
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug {
+    ($x:expr) => {
+        std::convert::identity($x)
+    };
+}
 
 fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, isize) -> isize) {
     let params = vec![
@@ -38,8 +54,7 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
         Rc::new(MalType::Nil),
     );
 
-    env.borrow_mut()
-        .set(name, Rc::new(MalType::Func(malfunc)))
+    env.borrow_mut().set(name, Rc::new(MalType::Func(malfunc)))
 }
 
 fn main() {
@@ -48,10 +63,9 @@ fn main() {
 
     let mut repl = Repl::new(None, None);
 
-    add_func2(repl.env(), "+".to_string(), &|a, b| a + b);
-    add_func2(repl.env(), "-".to_string(), &|a, b| a - b);
-    add_func2(repl.env(), "/".to_string(), &|a, b| a / b);
-    add_func2(repl.env(), "*".to_string(), &|a, b| a * b);
+    malcore::MalCore::add_to_env(repl.env());
+    repl.rep("(def! not (fn* (a) (if a false true)))".to_string())
+        .expect("Fail to parse def! not");
 
     loop {
         let readline = rl.readline("user> ");
