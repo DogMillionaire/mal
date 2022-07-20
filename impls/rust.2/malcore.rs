@@ -150,6 +150,17 @@ impl MalCore {
             Ok(MalType::list(new_list))
         });
 
+        Self::add_unary_func(env.clone(), "vec", &|list| match list.as_ref() {
+            MalType::Vector(_) => return Ok(list),
+            MalType::List(l) => return Ok(Rc::new(MalType::Vector(l.clone()))),
+            _ => {
+                return Err(MalError::InvalidType(
+                    "MalType::Vector or MalType::List".to_string(),
+                    list.type_name(),
+                ))
+            }
+        });
+
         instance
     }
 
