@@ -131,7 +131,7 @@ impl MalCore {
         });
 
         Self::add_binary_func(env.clone(), "cons", &|arg1, arg2| {
-            let list = arg2.try_into_list()?;
+            let list = arg2.as_ref().get_as_vec()?;
 
             let mut new_list = Vec::with_capacity(list.len() + 1);
             new_list.push(arg1);
@@ -142,9 +142,8 @@ impl MalCore {
 
         Self::add_param_list_func(env.clone(), "concat", &|args| {
             let mut new_list: Vec<Rc<MalType>> = Vec::new();
-
             for arg in args {
-                let list = arg.try_into_list()?;
+                let list = arg.get_as_vec()?;
                 list.iter().for_each(|v| new_list.push(v.clone()));
             }
 
