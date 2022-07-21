@@ -27,6 +27,7 @@ impl Display for MalType {
             MalType::Func(func) => f.write_str(&format!("#<function:{}>", func.name())),
             MalType::True => f.write_str("true"),
             MalType::False => f.write_str("false"),
+            MalType::Atom(v) => f.write_str(&format!("Atom({:?})", v)),
         }
     }
 }
@@ -83,6 +84,10 @@ impl Printer {
             MalType::Func(func) => format!("#<function:{}>", func.name()),
             MalType::True => String::from("true"),
             MalType::False => String::from("false"),
+            MalType::Atom(a) => format!(
+                "(atom {})",
+                Self::pr_str(a.borrow().as_ref(), print_readonly)
+            ),
         }
     }
 }

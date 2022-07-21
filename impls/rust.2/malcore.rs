@@ -103,7 +103,7 @@ impl MalCore {
             let input = str.try_into_string()?;
             Reader::read_str(input)?.read_form()
         });
-        Self::add_unary_func(env, "slurp", &|str| {
+        Self::add_unary_func(env.clone(), "slurp", &|str| {
             let filename = str.try_into_string()?;
 
             let mut file = File::open(&filename).map_err(|_| MalError::FileNotFound(filename))?;
@@ -112,6 +112,22 @@ impl MalCore {
                 .map_err(|e| MalError::InternalError(format!("{}", e)))?;
 
             Ok(MalType::string(content))
+        });
+
+        Self::add_unary_func(env.clone(), "atom", &|atom| {
+            Ok(Rc::new(MalType::Atom(RefCell::new(atom))))
+        });
+        Self::add_unary_func(env.clone(), "atom?", &|atom| {
+            Ok(MalType::bool(atom.is_atom()))
+        });
+        Self::add_unary_func(env.clone(), "deref", &|atom| {
+            let value = atom.try_into_atom()?;
+            Ok(value.into_inner())
+        });
+        Self::add_binary_func(env, "reset!", &|val1, val2| {
+            let atom = val1.try_into_atom()?;
+            atom.replace(val2.clone());
+            Ok(val2)
         });
 
         instance

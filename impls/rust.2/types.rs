@@ -16,6 +16,7 @@ pub enum MalType {
     Func(MalFunc),
     True,
     False,
+    Atom(RefCell<Rc<MalType>>),
 }
 
 /// Wrapper for a function
@@ -213,6 +214,26 @@ impl MalType {
     pub fn string(string: String) -> Rc<MalType> {
         Rc::new(MalType::String(string))
     }
+
+    pub fn try_into_atom(&self) -> Result<RefCell<Rc<MalType>>, MalError> {
+        if let Self::Atom(v) = self {
+            Ok(v.clone())
+        } else {
+            Err(MalError::InvalidType)
+        }
+    }
+
+    /// Returns `true` if the mal type is [`Atom`].
+    ///
+    /// [`Atom`]: MalType::Atom
+    #[must_use]
+    pub fn is_atom(&self) -> bool {
+        matches!(self, Self::Atom(..))
+    }
+
+    pub fn bool(value: bool) -> Rc<MalType> {
+        Rc::new(if value { MalType::True } else { MalType::False })
+    }
 }
 
 impl Eq for MalType {
@@ -250,6 +271,7 @@ impl std::fmt::Debug for MalType {
             Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
+            Self::Atom(v) => f.debug_tuple("Atom").field(v).finish(),
         }
     }
 }
@@ -273,6 +295,7 @@ impl std::hash::Hash for MalType {
             MalType::Func(func) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
+            MalType::Atom(v) => v.borrow().hash(state),
         }
     }
 }
