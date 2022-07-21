@@ -1,4 +1,6 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::{MalError, MalType};
 
@@ -6,6 +8,7 @@ use crate::{MalError, MalType};
 pub struct Env {
     outer: Option<Rc<RefCell<Env>>>,
     data: HashMap<String, Rc<MalType>>,
+    root: Option<Rc<RefCell<Env>>>,
 }
 
 #[allow(dead_code)]
@@ -13,7 +16,25 @@ pub type MalEnv = Rc<RefCell<Env>>;
 
 #[allow(dead_code)]
 impl Env {
-    pub fn new(
+    pub fn new_root(bindings: Option<Vec<Rc<MalType>>>, exprs: Option<Vec<Rc<MalType>>>) -> MalEnv {
+        let new_env = Self::new(bindings, exprs, None);
+
+        new_env.borrow_mut().set_root(Some(new_env.clone()));
+        new_env
+    }
+
+    pub fn new_with_outer(
+        bindings: Option<Vec<Rc<MalType>>>,
+        exprs: Option<Vec<Rc<MalType>>>,
+        outer: MalEnv,
+    ) -> MalEnv {
+        let new_env = Self::new(bindings, exprs, Some(outer.clone()));
+
+        new_env.borrow_mut().set_root(outer.borrow().get_root());
+        new_env
+    }
+
+    fn new(
         bindings: Option<Vec<Rc<MalType>>>,
         exprs: Option<Vec<Rc<MalType>>>,
         outer: Option<MalEnv>,
@@ -21,6 +42,7 @@ impl Env {
         let mut env = Env {
             outer,
             data: HashMap::new(),
+            root: None,
         };
 
         match (bindings, exprs) {
@@ -49,20 +71,17 @@ impl Env {
         Rc::new(RefCell::new(env))
     }
 
+    pub fn set_root(&mut self, root: Option<MalEnv>) {
+        self.root = root;
+    }
+
+    pub fn get_root(&self) -> Option<MalEnv> {
+        self.root.clone()
+    }
+
     pub fn set(&mut self, key: String, value: Rc<MalType>) {
         self.data.insert(key, value);
     }
-
-    // fn find(&self, key: String) -> Result<Rc<RefCell<&Env>>, MalError> {
-    //     if self.data.contains_key(&key) {
-    //         return Ok(Rc::new(RefCell::new(self)));
-    //     } else if let Some(outer_env) = &self.outer {
-    //         let env = outer_env;
-    //         let result = env.borrow().find(key)?;
-    //         return Ok(result.clone());
-    //     }
-    //     Err(MalError::SymbolNotFound(key))
-    // }
 
     pub fn get(&self, key: String) -> Result<Rc<MalType>, MalError> {
         match self.data.get(&key) {

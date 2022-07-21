@@ -26,7 +26,7 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
                 params: Vec<Rc<MalType>>,
                 param_values: Vec<Rc<MalType>>|
      -> Result<Rc<MalType>, MalError> {
-        let func_env = Env::new(Some(params), Some(param_values), Some(env));
+        let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
         let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
         let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
         Ok(Rc::new(MalType::Number(value(a, b))))

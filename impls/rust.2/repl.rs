@@ -30,9 +30,9 @@ pub struct Repl {
 #[allow(dead_code)]
 impl Repl {
     pub fn new(bindings: Option<Vec<Rc<MalType>>>, expressions: Option<Vec<Rc<MalType>>>) -> Self {
-        Self {
-            env: Env::new(bindings, expressions, None),
-        }
+        let env = Env::new_root(bindings, expressions);
+        env.as_ref().borrow_mut().set_root(Some(env.clone()));
+        Self { env }
     }
 
     pub fn env(&self) -> Rc<RefCell<Env>> {
@@ -74,12 +74,13 @@ impl Repl {
                     MalType::Symbol(s) if s == "def!" => {
                         let value = Self::eval(l[2].clone(), current_env.clone())?;
                         current_env
+                            .as_ref()
                             .borrow_mut()
                             .set(l[1].clone().try_into_symbol()?, value.clone());
                         return Ok(value);
                     }
                     MalType::Symbol(s) if s == "let*" => {
-                        let new_env = Env::new(None, None, Some(current_env.clone()));
+                        let new_env = Env::new_with_outer(None, None, current_env.clone());
 
                         let bindings_list = l[1].clone().try_into_list()?;
 
@@ -90,7 +91,7 @@ impl Repl {
                             let value = Self::eval(binding[1].clone(), new_env.clone())?;
 
                             {
-                                let mut mut_env = new_env.borrow_mut();
+                                let mut mut_env = new_env.as_ref().borrow_mut();
                                 mut_env.set(key.to_string(), value.clone());
                             }
                         }
@@ -149,7 +150,8 @@ impl Repl {
 
                                 debug!(format!("Calling eval with {}", input));
                                 let a = Self::eval(input, env.clone())?;
-                                Self::eval(a, env)
+                                let root_env = env.borrow().get_root().unwrap();
+                                Self::eval(a, root_env)
                             };
 
                         let mal = types::MalFunc::new_with_closure(
@@ -162,7 +164,6 @@ impl Repl {
 
                         current_ast =
                             MalType::list(vec![Rc::new(MalType::Func(mal)), symbol_to_eval]);
-                        //current_ast = Rc::new(MalType::Func(mal));
                     }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();
@@ -175,10 +176,10 @@ impl Repl {
                             );
                         }
 
-                        let exec_env = Env::new(
+                        let exec_env = Env::new_with_outer(
                             Some(func.parameters().to_vec()),
                             Some(args),
-                            Some(func.env()),
+                            func.env(),
                         );
 
                         current_ast = func.body_ast();

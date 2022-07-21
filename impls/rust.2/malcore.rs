@@ -106,8 +106,7 @@ impl MalCore {
         Self::add_unary_func(env, "slurp", &|str| {
             let filename = str.try_into_string()?;
 
-            let mut file =
-                File::open(&filename).map_err(|_| MalError::FileNotFound(filename))?;
+            let mut file = File::open(&filename).map_err(|_| MalError::FileNotFound(filename))?;
             let mut content = String::new();
             file.read_to_string(&mut content)
                 .map_err(|e| MalError::InternalError(format!("{}", e)))?;
@@ -179,7 +178,7 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
             let lhs = func_env.borrow().get("lhs".to_string())?;
             let rhs = func_env.borrow().get("rhs".to_string())?;
             func(lhs, rhs)
@@ -208,7 +207,7 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
             let a = func_env.borrow().get("a".to_string())?;
             func(a)
         };
@@ -239,7 +238,7 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
             let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
             let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
             Ok(Rc::new(MalType::Number(func(a, b))))
