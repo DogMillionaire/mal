@@ -12,14 +12,16 @@ pub enum MalError {
     InvalidNumber(String, usize),
     UnbalancedHashmap,
     SymbolNotFound(String),
-    InvalidType,
+    InvalidType(String, String),
     ParseError(String),
     IncorrectParamCount(String, usize, usize),
+    FileNotFound(String),
+    InternalError(String),
 }
 
 impl Display for MalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match &self {
             MalError::UnterminatedToken(char, start, end) => write!(
                 f,
                 "end of input found while looking for token '{}' start: {}, end: {}",
@@ -39,13 +41,19 @@ impl Display for MalError {
                 write!(f, "Number of keys and values does not match for hashmap")
             }
             MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
-            MalError::InvalidType => write!(f, "Invalid type"),
+            MalError::InvalidType(expected, actual) => write!(
+                f,
+                "Invalid type. Expected: {}, Actual: {}",
+                expected, actual
+            ),
             MalError::ParseError(msg) => write!(f, "Parse error: {}", msg),
             MalError::IncorrectParamCount(name, expected, actual) => write!(
                 f,
                 "Function {} expected {} parameters, called with {} parameters",
                 name, expected, actual
             ),
+            &MalError::FileNotFound(file) => write!(f, "File '{}' not found", file),
+            &MalError::InternalError(error) => write!(f, "Internal Error: '{}'", error),
         }
     }
 }
@@ -169,7 +177,7 @@ impl Reader {
                         Token::Unquote
                     }
                 }
-                ' ' | '\t' | ',' => {
+                ' ' | '\t' | ',' | '\n' => {
                     // Skip whitespace
                     idx += 1;
                     continue;
@@ -200,6 +208,9 @@ impl Reader {
                     if (idx < chars.len() - 1) && chars[idx + 1] == '*' {
                         idx += 1;
                         Token::Atom("**".to_string())
+                    } else if (idx < chars.len() - 1) && chars[idx + 1] == 'A' {
+                        idx += 5;
+                        Token::Atom("*ARGV*".to_string())
                     } else {
                         Token::Atom("*".to_string())
                     }

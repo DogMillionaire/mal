@@ -87,10 +87,10 @@ fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError
                 let rhs = eval(l[2].clone(), env)?;
                 let param_values = vec![lhs, rhs];
 
-                let exec_env = Env::new(
+                let exec_env = Env::new_with_outer(
                     Some(f.parameters().to_vec()),
                     Some(param_values.clone()),
-                    Some(f.env()),
+                    f.env(),
                 );
 
                 {
@@ -144,7 +144,7 @@ fn add_numeric_func(
 }
 
 fn rep(input: String) -> Result<String, MalError> {
-    let env = env::Env::new(None, None, None);
+    let env = env::Env::new_root(None, None);
 
     add_numeric_func(env.clone(), "+", &|a, b| a + b);
     add_numeric_func(env.clone(), "-", &|a, b| a - b);

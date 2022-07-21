@@ -1,8 +1,10 @@
+use std::fs::File;
+use std::io::Read;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;
 use crate::printer::Printer;
-use crate::reader::MalError;
+use crate::reader::{MalError, Reader};
 use crate::types::{MalFunc, MalType};
 
 #[allow(dead_code)]
@@ -90,12 +92,42 @@ impl MalCore {
                 Ok(Rc::new(MalType::False))
             }
         });
-        Self::add_binary_func(env, "=", &|a, b| {
+        Self::add_binary_func(env.clone(), "=", &|a, b| {
             if a == b {
                 Ok(Rc::new(MalType::True))
             } else {
                 Ok(Rc::new(MalType::False))
             }
+        });
+        Self::add_unary_func(env.clone(), "read-string", &|str| {
+            let input = str.try_into_string()?;
+            Reader::read_str(input)?.read_form()
+        });
+        Self::add_unary_func(env.clone(), "slurp", &|str| {
+            let filename = str.try_into_string()?;
+
+            let mut file = File::open(&filename).map_err(|_| MalError::FileNotFound(filename))?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|e| MalError::InternalError(format!("{}", e)))?;
+
+            Ok(MalType::string(content))
+        });
+
+        Self::add_unary_func(env.clone(), "atom", &|atom| {
+            Ok(Rc::new(MalType::Atom(RefCell::new(atom))))
+        });
+        Self::add_unary_func(env.clone(), "atom?", &|atom| {
+            Ok(MalType::bool(atom.is_atom()))
+        });
+        Self::add_unary_func(env.clone(), "deref", &|atom| {
+            let value = atom.try_into_atom()?;
+            Ok(value.borrow().clone())
+        });
+        Self::add_binary_func(env, "reset!", &|val1, val2| {
+            let atom = val1.try_into_atom()?;
+            atom.replace(val2.clone());
+            Ok(val2)
         });
 
         instance
@@ -162,7 +194,7 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
             let lhs = func_env.borrow().get("lhs".to_string())?;
             let rhs = func_env.borrow().get("rhs".to_string())?;
             func(lhs, rhs)
@@ -191,7 +223,7 @@ impl MalCore {
                     params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env);
             let a = func_env.borrow().get("a".to_string())?;
             func(a)
         };
@@ -217,24 +249,25 @@ impl MalCore {
             Rc::new(MalType::Symbol("b".to_string())),
         ];
 
-        let body = |env: Rc<RefCell<Env>>,
+        let body = |_env: Rc<RefCell<Env>>,
                     _body: Rc<MalType>,
-                    params: Vec<Rc<MalType>>,
+                    _params: Vec<Rc<MalType>>,
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> {
-            let func_env = Env::new(Some(params), Some(param_values), Some(env));
-            let a = func_env.borrow().get("a".to_string())?.try_into_number()?;
-            let b = func_env.borrow().get("b".to_string())?.try_into_number()?;
+            let a = param_values[0].clone().try_into_number()?;
+            let b = param_values[1].clone().try_into_number()?;
             Ok(Rc::new(MalType::Number(func(a, b))))
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+        let func = MalFunc::new_with_closure(
             Some(name.to_string()),
             params,
             body,
             env.clone(),
             Rc::new(MalType::Nil),
-        )));
+        );
+
+        let malfunc = Rc::new(MalType::Func(func));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }

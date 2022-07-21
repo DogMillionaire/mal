@@ -4,7 +4,7 @@ use crate::{
     env::Env,
     printer::Printer,
     reader::{MalError, Reader},
-    types::{self, MalType},
+    types::{self, MalFn, MalType},
 };
 
 #[allow(unused_must_use)]
@@ -30,9 +30,9 @@ pub struct Repl {
 #[allow(dead_code)]
 impl Repl {
     pub fn new(bindings: Option<Vec<Rc<MalType>>>, expressions: Option<Vec<Rc<MalType>>>) -> Self {
-        Self {
-            env: Env::new(bindings, expressions, None),
-        }
+        let env = Env::new_root(bindings, expressions);
+        env.as_ref().borrow_mut().set_root(Some(env.clone()));
+        Self { env }
     }
 
     pub fn env(&self) -> Rc<RefCell<Env>> {
@@ -74,12 +74,13 @@ impl Repl {
                     MalType::Symbol(s) if s == "def!" => {
                         let value = Self::eval(l[2].clone(), current_env.clone())?;
                         current_env
+                            .as_ref()
                             .borrow_mut()
                             .set(l[1].clone().try_into_symbol()?, value.clone());
                         return Ok(value);
                     }
                     MalType::Symbol(s) if s == "let*" => {
-                        let new_env = Env::new(None, None, Some(current_env.clone()));
+                        let new_env = Env::new_with_outer(None, None, current_env.clone());
 
                         let bindings_list = l[1].clone().try_into_list()?;
 
@@ -90,7 +91,7 @@ impl Repl {
                             let value = Self::eval(binding[1].clone(), new_env.clone())?;
 
                             {
-                                let mut mut_env = new_env.borrow_mut();
+                                let mut mut_env = new_env.as_ref().borrow_mut();
                                 mut_env.set(key.to_string(), value.clone());
                             }
                         }
@@ -136,8 +137,53 @@ impl Repl {
                         }
                         current_ast = l.last().expect("Expected non empty list for 'do'").clone();
                     }
+                    MalType::Symbol(s) if s == "eval" => {
+                        let symbol_to_eval = l[1].clone();
+                        let params = vec![Rc::new(MalType::Symbol("input".to_string()))];
+
+                        let body: &MalFn =
+                            &|env: Rc<RefCell<Env>>,
+                              _body: Rc<MalType>,
+                              _params: Vec<Rc<MalType>>,
+                              param_values: Vec<Rc<MalType>>| {
+                                let input = param_values[0].clone();
+
+                                debug!(format!("Calling eval with {}", input));
+                                let a = Self::eval(input, env.clone())?;
+                                let root_env = env.borrow().get_root().unwrap();
+                                Self::eval(a, root_env)
+                            };
+
+                        let mal = types::MalFunc::new_with_closure(
+                            Some("eval-closure".to_string()),
+                            params,
+                            body,
+                            current_env.clone(),
+                            Rc::new(MalType::Nil),
+                        );
+
+                        current_ast =
+                            MalType::list(vec![Rc::new(MalType::Func(mal)), symbol_to_eval]);
+                    }
+                    MalType::Symbol(s) if s == "swap!" => {
+                        let atom_symbol = l[1].clone().try_into_symbol()?;
+                        let atom_type = current_env.borrow().get(atom_symbol)?;
+                        let atom = atom_type.try_into_atom()?;
+                        let func = l[2].clone();
+
+                        let atom_value = atom.borrow().clone();
+
+                        let mut func_ast = vec![func, atom_value];
+                        l[3..].iter().for_each(|f| func_ast.push(f.clone()));
+
+                        let new_value = Self::eval(MalType::list(func_ast), current_env)?;
+                        atom.replace(new_value.clone());
+
+                        return Ok(new_value);
+                    }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();
+
                         if let Some(f) = func.body() {
                             return f(
                                 func.env(),
@@ -147,10 +193,10 @@ impl Repl {
                             );
                         }
 
-                        let exec_env = Env::new(
+                        let exec_env = Env::new_with_outer(
                             Some(func.parameters().to_vec()),
                             Some(args),
-                            Some(func.env()),
+                            func.env(),
                         );
 
                         current_ast = func.body_ast();

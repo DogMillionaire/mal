@@ -16,6 +16,7 @@ pub enum MalType {
     Func(MalFunc),
     True,
     False,
+    Atom(RefCell<Rc<MalType>>),
 }
 
 /// Wrapper for a function
@@ -112,11 +113,31 @@ impl MalFunc {
 
 #[allow(dead_code)]
 impl MalType {
+    pub fn type_name(&self) -> String {
+        match self {
+            MalType::Nil => String::from("MalType::Nil"),
+            MalType::List(_) => String::from("MalType::List"),
+            MalType::Symbol(_) => String::from("MalType::Symbol"),
+            MalType::Number(_) => String::from("MalType::Number"),
+            MalType::String(_) => String::from("MalType::String"),
+            MalType::Vector(_) => String::from("MalType::Vector"),
+            MalType::Keyword(_) => String::from("MalType::Keyword"),
+            MalType::Hashmap(_) => String::from("MalType::Hashmap"),
+            MalType::Func(_) => String::from("MalType::Func"),
+            MalType::True => String::from("MalType::True"),
+            MalType::False => String::from("MalType::False"),
+            MalType::Atom(_) => String::from("MalType::Atom"),
+        }
+    }
+
     pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
             Self::List(v) => Ok(v.clone()),
             Self::Vector(v) => Ok(v.clone()),
-            _ => Err(MalError::InvalidType),
+            _ => Err(MalError::InvalidType(
+                String::from("MalType::List"),
+                self.type_name(),
+            )),
         }
     }
 
@@ -124,7 +145,10 @@ impl MalType {
         if let Self::Symbol(v) = self {
             Ok(v.to_string())
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Symbol"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -132,7 +156,10 @@ impl MalType {
         if let Self::Number(v) = self {
             Ok(*v)
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Number"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -140,7 +167,10 @@ impl MalType {
         if let Self::String(v) = self {
             Ok(v.to_string())
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::String"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -148,7 +178,10 @@ impl MalType {
         if let Self::Vector(v) = self {
             Ok(v)
         } else {
-            Err(MalError::InvalidType)
+            Err(MalError::InvalidType(
+                String::from("MalType::Vector"),
+                self.type_name(),
+            ))
         }
     }
 
@@ -209,6 +242,52 @@ impl MalType {
     pub fn symbol(symbol: String) -> Rc<MalType> {
         Rc::new(MalType::Symbol(symbol))
     }
+
+    pub fn string(string: String) -> Rc<MalType> {
+        Rc::new(MalType::String(string))
+    }
+
+    pub fn try_into_atom(&self) -> Result<&RefCell<Rc<MalType>>, MalError> {
+        if let Self::Atom(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType(
+                String::from("MalType::Atom"),
+                self.type_name(),
+            ))
+        }
+    }
+
+    /// Returns `true` if the mal type is [`Atom`].
+    ///
+    /// [`Atom`]: MalType::Atom
+    #[must_use]
+    pub fn is_atom(&self) -> bool {
+        matches!(self, Self::Atom(..))
+    }
+
+    pub fn bool(value: bool) -> Rc<MalType> {
+        Rc::new(if value { MalType::True } else { MalType::False })
+    }
+
+    pub fn try_into_func(&self) -> Result<&MalFunc, MalError> {
+        if let Self::Func(v) = self {
+            Ok(v)
+        } else {
+            Err(MalError::InvalidType(
+                String::from("MalType::Func"),
+                self.type_name(),
+            ))
+        }
+    }
+
+    /// Returns `true` if the mal type is [`Func`].
+    ///
+    /// [`Func`]: MalType::Func
+    #[must_use]
+    pub fn is_func(&self) -> bool {
+        matches!(self, Self::Func(..))
+    }
 }
 
 impl Eq for MalType {
@@ -246,6 +325,7 @@ impl std::fmt::Debug for MalType {
             Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
+            Self::Atom(v) => f.debug_tuple("Atom").field(v).finish(),
         }
     }
 }
@@ -269,6 +349,7 @@ impl std::hash::Hash for MalType {
             MalType::Func(func) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
+            MalType::Atom(v) => v.borrow().hash(state),
         }
     }
 }
