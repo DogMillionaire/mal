@@ -124,10 +124,41 @@ impl MalCore {
             let value = atom.try_into_atom()?;
             Ok(value.borrow().clone())
         });
-        Self::add_binary_func(env, "reset!", &|val1, val2| {
+        Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
             atom.replace(val2.clone());
             Ok(val2)
+        });
+
+        Self::add_binary_func(env.clone(), "cons", &|arg1, arg2| {
+            let list = arg2.as_ref().get_as_vec()?;
+
+            let mut new_list = Vec::with_capacity(list.len() + 1);
+            new_list.push(arg1);
+            list.iter().for_each(|v| new_list.push(v.clone()));
+
+            Ok(MalType::list(new_list))
+        });
+
+        Self::add_param_list_func(env.clone(), "concat", &|args| {
+            let mut new_list: Vec<Rc<MalType>> = Vec::new();
+            for arg in args {
+                let list = arg.get_as_vec()?;
+                list.iter().for_each(|v| new_list.push(v.clone()));
+            }
+
+            Ok(MalType::list(new_list))
+        });
+
+        Self::add_unary_func(env.clone(), "vec", &|list| match list.as_ref() {
+            MalType::Vector(_) => return Ok(list),
+            MalType::List(l) => return Ok(Rc::new(MalType::Vector(l.clone()))),
+            _ => {
+                return Err(MalError::InvalidType(
+                    "MalType::Vector or MalType::List".to_string(),
+                    list.type_name(),
+                ))
+            }
         });
 
         instance

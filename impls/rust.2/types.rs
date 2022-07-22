@@ -193,6 +193,17 @@ impl MalType {
         matches!(self, Self::List(..))
     }
 
+    pub fn get_as_vec(&self) -> Result<Vec<Rc<MalType>>, MalError> {
+        return match self {
+            MalType::Vector(v) => Ok(v.clone()),
+            MalType::List(l) => Ok(l.clone()),
+            _ => Err(MalError::InvalidType(
+                "MalType::Vector or MalType::List".to_string(),
+                self.type_name(),
+            )),
+        };
+    }
+
     fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
         let (this_vec, other_vec) = match (this, other) {
             (MalType::List(l1), MalType::List(l2)) => (l1, l2),
@@ -287,6 +298,14 @@ impl MalType {
     #[must_use]
     pub fn is_func(&self) -> bool {
         matches!(self, Self::Func(..))
+    }
+
+    /// Returns `true` if the mal type is [`Symbol`].
+    ///
+    /// [`Symbol`]: MalType::Symbol
+    #[must_use]
+    pub fn is_symbol(&self) -> bool {
+        matches!(self, Self::Symbol(..))
     }
 }
 
