@@ -293,12 +293,16 @@ impl Repl {
                     ]));
                 }
                 let mut result_list = vec![MalType::symbol("vec".to_string())];
-                let result = Self::quasiquote(MalType::list(v.clone()), env.clone())?;
+                let quasicote_result = Self::quasiquote(MalType::list(v.clone()), env.clone())?;
 
-                result
+                let mut results: Vec<Rc<MalType>> = vec![];
+                quasicote_result
                     .get_as_vec()?
                     .iter()
-                    .for_each(|v| result_list.push(v.clone()));
+                    .for_each(|v| results.push(v.clone()));
+
+                result_list.push(MalType::list(results));
+
                 return Ok(MalType::list(result_list));
             }
             MalType::Symbol(_) | MalType::Hashmap(_) => {
