@@ -26,6 +26,7 @@ pub struct MalFunc {
     body: Option<Box<MalFn>>,
     env: Rc<RefCell<Env>>,
     body_ast: Rc<MalType>,
+    is_macro: RefCell<bool>,
 }
 
 impl std::fmt::Debug for MalFunc {
@@ -65,6 +66,7 @@ impl MalFunc {
             body: None,
             env,
             body_ast,
+            is_macro: RefCell::new(false),
         }
     }
     pub fn new_with_closure(
@@ -87,6 +89,7 @@ impl MalFunc {
             body: Some(Box::new(body)),
             env,
             body_ast,
+            is_macro: RefCell::new(false),
         }
     }
 
@@ -108,6 +111,14 @@ impl MalFunc {
 
     pub fn body(&self) -> Option<&Box<MalFn>> {
         self.body.as_ref()
+    }
+
+    pub fn is_macro(&self) -> bool {
+        self.is_macro.borrow().clone()
+    }
+
+    pub fn set_is_macro(&self, is_macro: bool) {
+        self.is_macro.replace(is_macro);
     }
 }
 

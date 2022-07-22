@@ -68,11 +68,28 @@ impl Repl {
         let mut current_env = env;
         let mut loopcount = 1;
         loop {
+            current_ast = Self::macroexpand(current_ast.clone(), current_env.clone())?;
+
+            if !current_ast.is_list() {
+                return Self::eval_ast(current_ast, current_env);
+            }
+
             debug!(format!("APPLY({})={:?}", loopcount, &current_ast));
             match current_ast.clone().as_ref() {
                 MalType::List(l) if l.len() > 0 => match l[0].clone().as_ref() {
                     MalType::Symbol(s) if s == "def!" => {
                         let value = Self::eval(l[2].clone(), current_env.clone())?;
+                        current_env
+                            .as_ref()
+                            .borrow_mut()
+                            .set(l[1].clone().try_into_symbol()?, value.clone());
+                        return Ok(value);
+                    }
+                    MalType::Symbol(s) if s == "defmacro!" => {
+                        let value = Self::eval(l[2].clone(), current_env.clone())?;
+
+                        value.clone().as_func().unwrap().set_is_macro(true);
+
                         current_env
                             .as_ref()
                             .borrow_mut()
@@ -194,6 +211,13 @@ impl Repl {
                         // ]);
                         return Self::quasiquote(l[1].clone(), current_env.clone());
                     }
+                    MalType::Symbol(s) if s == "macroexpand" => {
+                        // current_ast = MalType::list(vec![
+                        //     MalType::symbol("quasiquote".to_string()),
+                        //     l[1].clone(),
+                        // ]);
+                        return Self::macroexpand(l[1].clone(), current_env.clone());
+                    }
                     MalType::Func(func) => {
                         let args = l[1..l.len()].to_vec();
 
@@ -230,6 +254,44 @@ impl Repl {
             }
             loopcount += 1;
         }
+    }
+
+    fn macroexpand(ast: Rc<MalType>, env: MalEnv) -> Result<Rc<MalType>, MalError> {
+        let mut current_ast = ast.clone();
+        loop {
+            if !Self::is_macro_call(current_ast.clone(), env.clone()) {
+                break;
+            }
+
+            let apply_result = Self::apply(current_ast.clone(), env.clone())?;
+            current_ast = apply_result;
+        }
+
+        return Ok(current_ast.clone());
+    }
+
+    fn is_macro_symbol(symbol: Rc<MalType>, env: MalEnv) -> bool {
+        if let Ok(symbol) = symbol.try_into_symbol() {
+            if let Ok(s) = env.borrow().get(symbol) {
+                if let Ok(func) = s.try_into_func() {
+                    return func.is_macro();
+                }
+            }
+        }
+
+        return false;
+    }
+
+    fn is_macro_call(ast: Rc<MalType>, env: MalEnv) -> bool {
+        debug!(&ast);
+        // This function takes arguments ast and env.
+        // It returns true if ast is a list that contains a symbol as the first element
+        //  and that symbol refers to a function in the env environment and that
+        // function has the is_macro attribute set to true. Otherwise, it returns false.
+        match ast.as_ref() {
+            MalType::List(l) if l.len() > 0 => return Self::is_macro_symbol(l[0].clone(), env),
+            _ => return false,
+        };
     }
 
     fn is_list_starting_with_symbol(ast: Rc<MalType>, symbol: &str) -> bool {

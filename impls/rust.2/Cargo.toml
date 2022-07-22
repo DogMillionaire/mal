@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 rustyline = "9.1.2"
-assert_matches = "1.5.0"  
+assert_matches = "1.5.0"
 
 [[bin]]
 name = "step0_repl"
@@ -41,3 +41,7 @@ path = "step6_file.rs"
 [[bin]]
 name = "step7_quote"
 path = "step7_quote.rs"
+
+[[bin]]
+name = "step8_macros"
+path = "step8_macros.rs"
