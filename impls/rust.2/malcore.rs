@@ -161,6 +161,49 @@ impl MalCore {
             }
         });
 
+        Self::add_binary_func(env.clone(), "nth", &|a, b| {
+            let list = a.get_as_vec()?;
+            let index = b.try_into_number()? as usize;
+
+            if index < list.len() {
+                return Ok(list[index].clone());
+            }
+
+            Err(MalError::InternalError("invalid index".to_string()))
+            // return Ok(MalType::list(vec![
+            //     MalType::symbol("throw".to_string()),
+            //     MalType::string("invalid index".to_string()),
+            // ]));
+        });
+
+        Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
+            MalType::List(v) | MalType::Vector(v) => {
+                if v.is_empty() {
+                    return Ok(Rc::new(MalType::Nil));
+                }
+                return Ok(v[0].clone());
+            }
+            MalType::Nil => Ok(Rc::new(MalType::Nil)),
+            _ => Err(MalError::InvalidType(
+                "MalType::List, MalType::Vector or MalType::Nil".to_string(),
+                a.type_name(),
+            )),
+        });
+        Self::add_unary_func(env.clone(), "rest", &|a| match a.as_ref() {
+            MalType::List(v) | MalType::Vector(v) => {
+                if v.is_empty() {
+                    return Ok(MalType::list(vec![]));
+                }
+                let rest = v.iter().skip(1).map(|v| v.clone()).collect();
+                return Ok(MalType::list(rest));
+            }
+            MalType::Nil => Ok(MalType::list(vec![])),
+            _ => Err(MalError::InvalidType(
+                "MalType::List, MalType::Vector or MalType::Nil".to_string(),
+                a.type_name(),
+            )),
+        });
+
         instance
     }
 
