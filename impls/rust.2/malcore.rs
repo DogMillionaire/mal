@@ -214,6 +214,17 @@ impl MalCore {
             Ok(MalType::bool(a.is_symbol()))
         });
 
+        Self::add_unary_func(env.clone(), "symbol", &|a| {
+            Ok(MalType::symbol(a.try_into_string()?))
+        });
+        Self::add_unary_func(env.clone(), "keyword", &|a| match a.is_keyword() {
+            true => Ok(a),
+            false => Ok(Rc::new(MalType::Keyword(a.try_into_string()?))),
+        });
+        Self::add_unary_func(env.clone(), "keyword?", &|a| {
+            Ok(MalType::bool(a.is_keyword()))
+        });
+
         instance
     }
 
