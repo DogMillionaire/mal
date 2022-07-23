@@ -173,10 +173,6 @@ impl MalCore {
                 "Invalid index {}",
                 index
             ))))
-            // return Ok(MalType::list(vec![
-            //     MalType::symbol("throw".to_string()),
-            //     MalType::string("invalid index".to_string()),
-            // ]));
         });
 
         Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
@@ -209,6 +205,13 @@ impl MalCore {
 
         Self::add_unary_func(env.clone(), "throw", &|value| {
             Err(MalError::Exception(value))
+        });
+
+        Self::add_unary_func(env.clone(), "nil?", &|a| Ok(MalType::bool(a.is_nil())));
+        Self::add_unary_func(env.clone(), "true?", &|a| Ok(MalType::bool(a.is_true())));
+        Self::add_unary_func(env.clone(), "false?", &|a| Ok(MalType::bool(a.is_false())));
+        Self::add_unary_func(env.clone(), "symbol?", &|a| {
+            Ok(MalType::bool(a.is_symbol()))
         });
 
         instance
