@@ -1,10 +1,10 @@
 use std::fs::File;
-use std::io::Read;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
 use crate::env::Env;
+use crate::malerror::MalError;
 use crate::printer::Printer;
-use crate::reader::{MalError, Reader};
+use crate::reader::Reader;
 use crate::types::{MalFunc, MalType};
 
 #[allow(dead_code)]

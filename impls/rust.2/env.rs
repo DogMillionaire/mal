@@ -2,7 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{MalError, MalType};
+use crate::malerror::MalError;
+use crate::MalType;
 
 #[allow(dead_code)]
 pub struct Env {

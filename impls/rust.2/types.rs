@@ -2,7 +2,7 @@ use std::hash::Hash;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::env::Env;
-use crate::reader::MalError;
+use crate::malerror::MalError;
 
 pub enum MalType {
     Nil,

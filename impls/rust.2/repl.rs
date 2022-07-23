@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     env::{Env, MalEnv},
     printer::{Printer},
-    reader::{MalError, Reader},
-    types::{self, MalFn, MalType},
+    reader::{Reader},
+    types::{self, MalFn, MalType}, malerror::MalError,
 };
 
 #[allow(unused_must_use)]
@@ -16,6 +16,7 @@ macro_rules! debug {
     };
 }
 
+#[allow(unused_macros)]
 #[cfg(not(debug_assertions))]
 macro_rules! debug {
     ($x:expr) => {

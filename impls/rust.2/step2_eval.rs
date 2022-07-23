@@ -1,5 +1,6 @@
 mod env;
 mod malcore;
+mod malerror;
 mod printer;
 mod reader;
 mod repl;
@@ -10,8 +11,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use env::Env;
-use reader::MalError;
 
+use crate::malerror::MalError;
 use crate::printer::Printer;
 use crate::reader::Reader;
 use crate::types::{MalFunc, MalType};
