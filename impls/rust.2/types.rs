@@ -94,6 +94,9 @@ impl MalFunc {
     }
 
     pub fn name(&self) -> String {
+        if self.is_macro() {
+            return String::from("macro");
+        }
         self.name.clone()
     }
 

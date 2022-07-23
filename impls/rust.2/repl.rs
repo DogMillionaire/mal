@@ -219,12 +219,13 @@ impl Repl {
                         let args = l[1..l.len()].to_vec();
 
                         if let Some(f) = func.body() {
-                            return f(
+                            current_ast = f(
                                 func.env(),
                                 func.body_ast(),
                                 func.parameters().to_vec(),
                                 args,
-                            );
+                            )?;
+                            continue;
                         }
 
                         let exec_env = Env::new_with_outer(
