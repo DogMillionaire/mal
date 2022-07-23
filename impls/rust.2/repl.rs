@@ -199,6 +199,7 @@ impl Repl {
                                         Ok(ast) => current_ast = ast,
                                         Err(e) if e.is_exception() => {
                                             if l.len() < 2 {
+                                                // No catch block
                                                 return Err(e);
                                             }
 
@@ -220,6 +221,23 @@ impl Repl {
                                         },
                                         Err(e) => return Err(e) 
                                     }
+                                }
+                                MalType::Symbol(s) if s == "apply" => {
+                                    if l.len() < 2 {
+                                        return Err(MalError::ParseError(
+                                            "Apply needs at least 2 arguments".to_string(),
+                                        ));
+                                    }
+
+                                    let func = l[1].clone();
+                                    let mut func_ast: Vec<Rc<MalType>> = vec![func];
+
+                                    l[2..l.len()-1].iter().for_each(|v| func_ast.push(v.clone()));
+                                    let arg_vec = l[l.len()-1].get_as_vec()?;
+
+                                    arg_vec.iter().for_each(|v| func_ast.push(v.clone()));
+
+                                    current_ast = MalType::list(func_ast);
                                 }
                                 MalType::Func(func) => {
                                     let args = l[1..l.len()].to_vec();
