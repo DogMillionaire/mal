@@ -239,6 +239,28 @@ impl Repl {
 
                                     current_ast = MalType::list(func_ast);
                                 }
+                                MalType::Symbol(s) if s == "map" => {
+                                    if l.len() < 2 {
+                                        return Err(MalError::ParseError(
+                                            "Map needs at least 2 arguments".to_string(),
+                                        ));
+                                    }
+
+                                    let func = l[1].clone();
+                                    let args = l[2].get_as_vec()?;
+
+                                    let mut results: Vec<Rc<MalType>> = vec![];
+                                    for arg in args {
+                                        let func_ast = MalType::list(vec![
+                                            func.clone(),
+                                            arg
+                                        ]);
+                                        let mapped_val = Self::eval(func_ast, current_env.clone())?;
+                                        results.push(mapped_val);
+                                    }
+
+                                    return Ok(MalType::list(results));
+                                }
                                 MalType::Func(func) => {
                                     let args = l[1..l.len()].to_vec();
             
