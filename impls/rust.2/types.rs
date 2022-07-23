@@ -120,8 +120,8 @@ impl MalFunc {
         self.is_macro.borrow().clone()
     }
 
-    pub fn set_is_macro(&self, is_macro: bool) {
-        self.is_macro.replace(is_macro);
+    pub fn set_is_macro(&self) {
+        self.is_macro.replace(true);
     }
 }
 

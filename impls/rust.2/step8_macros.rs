@@ -31,9 +31,6 @@ fn main() {
 
     repl.rep(r#"(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))"#.to_string()).expect("Failed to parse defmacro! cond");
 
-    repl.rep(r#"(defmacro! unless (fn* (pred a b) `(if ~pred ~b ~a)))"#.to_string());
-    repl.rep(r#"(macroexpand (unless PRED A B))"#.to_string());
-
     let mut arg_list: Vec<Rc<MalType>> = vec![];
     if args.len() >= 2 {
         arg_list = args[2..]

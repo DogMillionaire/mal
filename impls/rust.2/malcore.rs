@@ -169,10 +169,11 @@ impl MalCore {
                 return Ok(list[index].clone());
             }
 
-            return Ok(MalType::list(vec![
-                MalType::symbol("throw".to_string()),
-                MalType::string("invalid index".to_string()),
-            ]));
+            Err(MalError::InternalError("invalid index".to_string()))
+            // return Ok(MalType::list(vec![
+            //     MalType::symbol("throw".to_string()),
+            //     MalType::string("invalid index".to_string()),
+            // ]));
         });
 
         Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
