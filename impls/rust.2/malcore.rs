@@ -225,6 +225,13 @@ impl MalCore {
             Ok(MalType::bool(a.is_keyword()))
         });
 
+        Self::add_param_list_func(env.clone(), "vector", &|vals| {
+            Ok(Rc::new(MalType::Vector(vals)))
+        });
+        Self::add_unary_func(env.clone(), "vector?", &|a| {
+            Ok(MalType::bool(a.is_vector()))
+        });
+
         instance
     }
 

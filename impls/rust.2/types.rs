@@ -321,6 +321,46 @@ impl MalType {
     pub fn is_symbol(&self) -> bool {
         matches!(self, Self::Symbol(..))
     }
+
+    /// Returns `true` if the mal type is [`Nil`].
+    ///
+    /// [`Nil`]: MalType::Nil
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
+
+    /// Returns `true` if the mal type is [`True`].
+    ///
+    /// [`True`]: MalType::True
+    #[must_use]
+    pub fn is_true(&self) -> bool {
+        matches!(self, Self::True)
+    }
+
+    /// Returns `true` if the mal type is [`False`].
+    ///
+    /// [`False`]: MalType::False
+    #[must_use]
+    pub fn is_false(&self) -> bool {
+        matches!(self, Self::False)
+    }
+
+    /// Returns `true` if the mal type is [`Keyword`].
+    ///
+    /// [`Keyword`]: MalType::Keyword
+    #[must_use]
+    pub fn is_keyword(&self) -> bool {
+        matches!(self, Self::Keyword(..))
+    }
+
+    /// Returns `true` if the mal type is [`Vector`].
+    ///
+    /// [`Vector`]: MalType::Vector
+    #[must_use]
+    pub fn is_vector(&self) -> bool {
+        matches!(self, Self::Vector(..))
+    }
 }
 
 impl Eq for MalType {
