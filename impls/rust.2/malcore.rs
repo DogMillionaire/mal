@@ -232,6 +232,95 @@ impl MalCore {
             Ok(MalType::bool(a.is_vector()))
         });
 
+        Self::add_unary_func(env.clone(), "sequential?", &|a| match a.get_as_vec() {
+            Ok(_) => Ok(MalType::bool(true)),
+            Err(_) => Ok(MalType::bool(false)),
+        });
+
+        Self::add_unary_func(env.clone(), "map?", &|a| Ok(MalType::bool(a.is_hashmap())));
+
+        Self::add_param_list_func(env.clone(), "hash-map", &|vals| {
+            if vals.len() % 2 != 0 {
+                return Err(MalError::ParseError(
+                    "hash-map must be provided an even number of args".to_string(),
+                ));
+            }
+
+            let mut map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            for pairs in vals.chunks_exact(2) {
+                map.insert(pairs[0].clone(), pairs[1].clone());
+            }
+
+            Ok(Rc::new(MalType::Hashmap(map)))
+        });
+
+        Self::add_param_list_func(env.clone(), "assoc", &|vals| {
+            let map = vals[0].try_into_hashmap()?;
+
+            let remaining_args: Vec<_> = vals[1..].iter().collect();
+            if remaining_args.len() % 2 != 0 {
+                return Err(MalError::ParseError(
+                    "apply must be provided an even number of args".to_string(),
+                ));
+            }
+
+            let mut new_map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            for (k, v) in map {
+                new_map.insert(k, v);
+            }
+
+            for pairs in remaining_args.chunks_exact(2) {
+                new_map.insert(pairs[0].clone(), pairs[1].clone());
+            }
+
+            return Ok(Rc::new(MalType::Hashmap(new_map)));
+        });
+
+        Self::add_param_list_func(env.clone(), "dissoc", &|vals| {
+            let map = vals[0].try_into_hashmap()?;
+
+            let mut new_map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            for (k, v) in map {
+                new_map.insert(k, v);
+            }
+
+            for key in vals[1..].iter() {
+                new_map.remove(key);
+            }
+
+            return Ok(Rc::new(MalType::Hashmap(new_map)));
+        });
+
+        Self::add_binary_func(env.clone(), "get", &|map, key| {
+            let m = map.try_into_hashmap()?;
+
+            match m.get(&key) {
+                Some(v) => Ok(v.clone()),
+                None => Ok(Rc::new(MalType::Nil)),
+            }
+        });
+
+        Self::add_binary_func(env.clone(), "contains?", &|map, key| {
+            let m = map.try_into_hashmap()?;
+
+            Ok(MalType::bool(m.contains_key(&key)))
+        });
+
+        Self::add_unary_func(env.clone(), "keys", &|a| {
+            let map = a.try_into_hashmap()?;
+
+            let keys: Vec<_> = map.keys().map(|v| v.clone()).collect();
+
+            Ok(MalType::list(keys))
+        });
+        Self::add_unary_func(env.clone(), "vals", &|a| {
+            let map = a.try_into_hashmap()?;
+
+            let keys: Vec<_> = map.keys().map(|v| v.clone()).collect();
+
+            Ok(MalType::list(keys))
+        });
+
         instance
     }
 

@@ -361,6 +361,25 @@ impl MalType {
     pub fn is_vector(&self) -> bool {
         matches!(self, Self::Vector(..))
     }
+
+    /// Returns `true` if the mal type is [`Hashmap`].
+    ///
+    /// [`Hashmap`]: MalType::Hashmap
+    #[must_use]
+    pub fn is_hashmap(&self) -> bool {
+        matches!(self, Self::Hashmap(..))
+    }
+
+    pub fn try_into_hashmap(&self) -> Result<HashMap<Rc<MalType>, Rc<MalType>>, MalError> {
+        if let Self::Hashmap(v) = self {
+            Ok(v.clone())
+        } else {
+            Err(MalError::InvalidType(
+                String::from("MalType::Hashmap"),
+                self.type_name(),
+            ))
+        }
+    }
 }
 
 impl Eq for MalType {
