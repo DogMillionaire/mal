@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     env::{Env, MalEnv},
-    printer::Printer,
+    printer::{self, Printer},
     reader::{MalError, Reader},
     types::{self, MalFn, MalType},
 };
@@ -46,16 +46,17 @@ impl Repl {
     }
 
     fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        debug!(format!("EVAL={:?}", &ast));
-        match ast.clone().as_ref() {
+        let mut current_ast = ast.clone();
+        current_ast = Self::macroexpand(current_ast.clone(), env.clone())?;
+        match current_ast.clone().as_ref() {
             MalType::List(l) => {
                 if l.is_empty() {
-                    Ok(ast)
+                    Ok(current_ast)
                 } else {
-                    Self::apply(ast, env)
+                    Self::apply(current_ast, env)
                 }
             }
-            _ => Self::eval_ast(ast, env),
+            _ => Self::eval_ast(current_ast, env),
         }
     }
 
@@ -68,13 +69,10 @@ impl Repl {
         let mut current_env = env;
         let mut loopcount = 1;
         loop {
-            current_ast = Self::macroexpand(current_ast.clone(), current_env.clone())?;
-
             if !current_ast.is_list() {
                 return Self::eval_ast(current_ast, current_env);
             }
 
-            debug!(format!("APPLY({})={:?}", loopcount, &current_ast));
             match current_ast.clone().as_ref() {
                 MalType::List(l) if l.len() > 0 => match l[0].clone().as_ref() {
                     MalType::Symbol(s) if s == "def!" => {
@@ -165,7 +163,6 @@ impl Repl {
                               param_values: Vec<Rc<MalType>>| {
                                 let input = param_values[0].clone();
 
-                                debug!(format!("Calling eval with {}", input));
                                 let a = Self::eval(input, env.clone())?;
                                 let root_env = env.borrow().get_root().unwrap();
                                 Self::eval(a, root_env)
@@ -257,40 +254,52 @@ impl Repl {
     }
 
     fn macroexpand(ast: Rc<MalType>, env: MalEnv) -> Result<Rc<MalType>, MalError> {
+        printer::Printer::pr_str(ast.as_ref(), true);
         let mut current_ast = ast.clone();
         loop {
-            if !Self::is_macro_call(current_ast.clone(), env.clone()) {
+            if let Some((func, func_args)) = Self::get_macro_call(current_ast.clone(), env.clone())
+            {
+                let mut func_list = vec![func];
+                func_args.iter().for_each(|a| func_list.push(a.clone()));
+                let apply_result = Self::eval(MalType::list(func_list), env.clone())?;
+                current_ast = apply_result;
+            } else {
                 break;
             }
-
-            let apply_result = Self::apply(current_ast.clone(), env.clone())?;
-            current_ast = apply_result;
         }
 
         return Ok(current_ast.clone());
     }
 
-    fn is_macro_symbol(symbol: Rc<MalType>, env: MalEnv) -> bool {
+    fn get_macro_symbol(symbol: Rc<MalType>, env: MalEnv) -> Option<Rc<MalType>> {
         if let Ok(symbol) = symbol.try_into_symbol() {
             if let Ok(s) = env.borrow().get(symbol) {
                 if let Ok(func) = s.try_into_func() {
-                    return func.is_macro();
+                    if func.is_macro() {
+                        return Some(s);
+                    }
+                    return None;
                 }
             }
         }
 
-        return false;
+        return None;
     }
 
-    fn is_macro_call(ast: Rc<MalType>, env: MalEnv) -> bool {
-        debug!(&ast);
+    fn get_macro_call(ast: Rc<MalType>, env: MalEnv) -> Option<(Rc<MalType>, Vec<Rc<MalType>>)> {
         // This function takes arguments ast and env.
         // It returns true if ast is a list that contains a symbol as the first element
         //  and that symbol refers to a function in the env environment and that
         // function has the is_macro attribute set to true. Otherwise, it returns false.
         match ast.as_ref() {
-            MalType::List(l) if l.len() > 0 => return Self::is_macro_symbol(l[0].clone(), env),
-            _ => return false,
+            MalType::List(l) if l.len() > 0 => {
+                if let Some(func) = Self::get_macro_symbol(l[0].clone(), env) {
+                    let args: Vec<_> = l[1..].iter().map(|v| v.clone()).collect();
+                    return Some((func, args));
+                }
+                return None;
+            }
+            _ => return None,
         };
     }
 
@@ -307,8 +316,6 @@ impl Repl {
     }
 
     fn quasiquote(ast: Rc<MalType>, env: MalEnv) -> Result<Rc<MalType>, MalError> {
-        debug!(&ast);
-
         match ast.clone().as_ref() {
             MalType::List(list) => {
                 if Self::is_list_starting_with_symbol(ast, "unquote") {
@@ -319,7 +326,6 @@ impl Repl {
                     let mut current_result: Rc<MalType> = MalType::list(vec![]);
                     // The result is initially an empty list. Iterate over each element elt of ast in reverse order:
                     for elt in list.iter().rev() {
-                        debug!(elt);
                         if Self::is_list_starting_with_symbol(elt.clone(), "splice-unquote") {
                             // If elt is a list starting with the "splice-unquote" symbol,
                             // replace the current result with a list containing:
@@ -382,12 +388,10 @@ impl Repl {
     fn read(input: String) -> Result<Rc<MalType>, MalError> {
         let mut reader = Reader::read_str(input)?;
         let result = reader.read_form();
-        debug!(format!("READ={:?}", &result));
         result
     }
 
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        debug!(format!("EVAL_AST={:?}", &ast));
         match ast.as_ref() {
             MalType::Symbol(name) => env.borrow().get(name.to_string()),
             MalType::List(list) => {
