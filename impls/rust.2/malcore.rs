@@ -111,7 +111,7 @@ impl MalCore {
             file.read_to_string(&mut content)
                 .map_err(|e| MalError::InternalError(format!("{}", e)))?;
 
-            Ok(MalType::string(content))
+            Ok(MalType::new_string(content))
         });
 
         Self::add_unary_func(env.clone(), "atom", &|atom| {
@@ -169,7 +169,10 @@ impl MalCore {
                 return Ok(list[index].clone());
             }
 
-            Err(MalError::InternalError("invalid index".to_string()))
+            Err(MalError::Exception(MalType::new_string(format!(
+                "Invalid index {}",
+                index
+            ))))
             // return Ok(MalType::list(vec![
             //     MalType::symbol("throw".to_string()),
             //     MalType::string("invalid index".to_string()),
@@ -202,6 +205,10 @@ impl MalCore {
                 "MalType::List, MalType::Vector or MalType::Nil".to_string(),
                 a.type_name(),
             )),
+        });
+
+        Self::add_unary_func(env.clone(), "throw", &|value| {
+            Err(MalError::Exception(value))
         });
 
         instance

@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
+
+use crate::{printer::Printer, types::MalType};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -13,6 +15,25 @@ pub enum MalError {
     IncorrectParamCount(String, usize, usize),
     FileNotFound(String),
     InternalError(String),
+    Exception(Rc<MalType>),
+}
+
+impl MalError {
+    /// Returns `true` if the mal error is [`Exception`].
+    ///
+    /// [`Exception`]: MalError::Exception
+    #[must_use]
+    pub fn is_exception(&self) -> bool {
+        matches!(self, Self::Exception(..))
+    }
+
+    pub fn as_exception(&self) -> Option<Rc<MalType>> {
+        if let Self::Exception(v) = self {
+            Some(v.clone())
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for MalError {
@@ -50,6 +71,9 @@ impl Display for MalError {
             ),
             &MalError::FileNotFound(file) => write!(f, "File '{}' not found", file),
             &MalError::InternalError(error) => write!(f, "Internal Error: '{}'", error),
+            MalError::Exception(value) => {
+                write!(f, "Exception: '{}'", Printer::pr_str(value, true))
+            }
         }
     }
 }

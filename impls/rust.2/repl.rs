@@ -187,18 +187,39 @@ impl Repl {
                                     current_ast = Self::quasiquote(l[1].clone(), current_env.clone())?;
                                 }
                                 MalType::Symbol(s) if s == "quasiquoteexpand" => {
-                                    // current_ast = MalType::list(vec![
-                                    //     MalType::symbol("quasiquote".to_string()),
-                                    //     l[1].clone(),
-                                    // ]);
                                     return Self::quasiquote(l[1].clone(), current_env.clone());
                                 }
                                 MalType::Symbol(s) if s == "macroexpand" => {
-                                    // current_ast = MalType::list(vec![
-                                    //     MalType::symbol("quasiquote".to_string()),
-                                    //     l[1].clone(),
-                                    // ]);
                                     return Self::macroexpand(l[1].clone(), current_env.clone());
+                                }
+                                MalType::Symbol(s) if s == "try*" => {
+                                    let body = l[1].clone();
+
+                                    match Self::eval(body, env.clone()){
+                                        Ok(ast) => current_ast = ast,
+                                        Err(e) if e.is_exception() => {
+                                            if l.len() < 2 {
+                                                return Err(e);
+                                            }
+
+                                            let catch = l[2].clone().try_into_list()?;
+
+                                            let catch_symbol = catch[0].try_into_symbol()?;
+                                            let _exception_symbol = catch[1].try_into_symbol()?;
+                                            let catch_body = catch[2].clone();
+
+                                            let catch_bindings = vec![
+                                                MalType::symbol(catch_symbol)
+                                            ];
+                                            let catch_expressions = vec![
+                                                e.as_exception().unwrap()
+                                            ];
+
+                                            let catch_env = Env::new_with_outer(Some(catch_bindings), Some(catch_expressions), env.clone());
+                                            current_ast = Self::eval(catch_body, catch_env)?;
+                                        },
+                                        Err(e) => return Err(e) 
+                                    }
                                 }
                                 MalType::Func(func) => {
                                     let args = l[1..l.len()].to_vec();

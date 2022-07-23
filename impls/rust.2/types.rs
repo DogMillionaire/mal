@@ -268,7 +268,7 @@ impl MalType {
         Rc::new(MalType::Symbol(symbol))
     }
 
-    pub fn string(string: String) -> Rc<MalType> {
+    pub fn new_string(string: String) -> Rc<MalType> {
         Rc::new(MalType::String(string))
     }
 

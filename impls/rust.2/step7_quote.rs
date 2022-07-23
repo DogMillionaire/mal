@@ -32,7 +32,7 @@ fn main() {
     if args.len() >= 2 {
         arg_list = args[2..]
             .iter()
-            .map(|a| MalType::string(a.to_string()))
+            .map(|a| MalType::new_string(a.to_string()))
             .collect();
     }
 
