@@ -382,6 +382,31 @@ impl MalType {
             ))
         }
     }
+
+    fn compare_hashmap(
+        lhs: &IndexMap<Rc<MalType>, Rc<MalType>>,
+        rhs: &IndexMap<Rc<MalType>, Rc<MalType>>,
+    ) -> bool {
+        if lhs.len() != rhs.len() {
+            return false;
+        }
+
+        for key in lhs.keys() {
+            let lvalue = lhs.get(key);
+            let rvalue = rhs.get(key);
+
+            match (lvalue, rvalue) {
+                (Some(left), Some(right)) => {
+                    if left != right {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        return true;
+    }
 }
 
 impl Eq for MalType {
@@ -399,7 +424,7 @@ impl PartialEq for MalType {
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
-            (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
+            (Self::Hashmap(l0), Self::Hashmap(r0)) => Self::compare_hashmap(l0, r0),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
