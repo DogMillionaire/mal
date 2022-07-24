@@ -102,8 +102,8 @@ impl MalFunc {
         self.name.clone()
     }
 
-    pub fn parameters(&self) -> &[Rc<MalType>] {
-        self.parameters.as_ref()
+    pub fn parameters(&self) -> Vec<Rc<MalType>> {
+        self.parameters.clone()
     }
 
     pub fn env(&self) -> Rc<RefCell<Env>> {

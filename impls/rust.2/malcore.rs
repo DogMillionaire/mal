@@ -3,10 +3,11 @@ use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
 use indexmap::IndexMap;
 
-use crate::env::Env;
+use crate::env::{Env, MalEnv};
 use crate::malerror::MalError;
 use crate::printer::Printer;
 use crate::reader::Reader;
+use crate::repl::Repl;
 use crate::types::{MalFunc, MalType};
 
 #[allow(dead_code)]
@@ -101,6 +102,9 @@ impl MalCore {
                 Ok(Rc::new(MalType::False))
             }
         });
+
+        Self::add_unary_func_with_env(env.clone(), "eval", &|ast, env| Repl::eval2(ast, env));
+
         Self::add_unary_func(env.clone(), "read-string", &|str| {
             let input = str.try_into_string()?;
             Reader::read_str(input)?.read_form()
@@ -125,6 +129,21 @@ impl MalCore {
         Self::add_unary_func(env.clone(), "deref", &|atom| {
             let value = atom.try_into_atom()?;
             Ok(value.borrow().clone())
+        });
+        Self::add_param_list_func_with_env(env.clone(), "swap!", &|params, env| {
+            let atom = params[0].clone();
+            let atom_value = atom.try_into_atom()?;
+            let func = params[1].clone();
+
+            let mut func_ast = vec![func, atom_value.borrow().clone()];
+            params[2..params.len()]
+                .iter()
+                .for_each(|p| func_ast.push(p.clone()));
+
+            let new_value = Repl::eval2(MalType::list(func_ast), env.clone())?;
+            atom_value.replace(new_value.clone());
+
+            return Ok(new_value);
         });
         Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
@@ -207,6 +226,33 @@ impl MalCore {
 
         Self::add_unary_func(env.clone(), "throw", &|value| {
             Err(MalError::Exception(value))
+        });
+
+        Self::add_binary_func_with_env(env.clone(), "map", &|func, values, env| {
+            let values_to_map = values.get_as_vec()?;
+            let mut results = Vec::with_capacity(values_to_map.len());
+
+            for value in values_to_map {
+                let func_ast = MalType::list(vec![func.clone(), value.clone()]);
+                results.push(Repl::eval2(func_ast, env.clone())?);
+            }
+
+            return Ok(MalType::list(results));
+        });
+        Self::add_param_list_func_with_env(env.clone(), "apply", &|params, env| {
+            let func = params[0].clone();
+            let mut args = vec![func];
+            params[1..params.len() - 1]
+                .iter()
+                .for_each(|v| args.push(v.clone()));
+            params
+                .last()
+                .unwrap()
+                .get_as_vec()?
+                .iter()
+                .for_each(|v| args.push(v.clone()));
+
+            Repl::eval2(MalType::list(args), env.clone())
         });
 
         Self::add_unary_func(env.clone(), "nil?", &|a| Ok(MalType::bool(a.is_nil())));
@@ -353,6 +399,28 @@ impl MalCore {
         }
     }
 
+    fn add_param_list_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Vec<Rc<MalType>>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    _params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> { func(param_values, env) };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            vec![],
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
     fn add_param_list_func(
         env: Rc<RefCell<Env>>,
         name: &str,
@@ -367,6 +435,38 @@ impl MalCore {
         let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             vec![],
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
+    fn add_binary_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Rc<MalType>, Rc<MalType>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let params = vec![
+            Rc::new(MalType::Symbol("lhs".to_string())),
+            Rc::new(MalType::Symbol("rhs".to_string())),
+        ];
+
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> {
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env.clone());
+            let lhs = func_env.borrow().get("lhs".to_string())?;
+            let rhs = func_env.borrow().get("rhs".to_string())?;
+            func(lhs, rhs, env)
+        };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
             body,
             env.clone(),
             Rc::new(MalType::Nil),
@@ -394,6 +494,34 @@ impl MalCore {
             let lhs = func_env.borrow().get("lhs".to_string())?;
             let rhs = func_env.borrow().get("rhs".to_string())?;
             func(lhs, rhs)
+        };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
+    fn add_unary_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Rc<MalType>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let params = vec![Rc::new(MalType::Symbol("a".to_string()))];
+
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> {
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env.clone());
+            let a = func_env.borrow().get("a".to_string())?;
+            func(a, env)
         };
 
         let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
