@@ -57,7 +57,7 @@ impl Display for MalError {
             MalError::UnbalancedHashmap => {
                 write!(f, "Number of keys and values does not match for hashmap")
             }
-            MalError::SymbolNotFound(s) => write!(f, "Symbol '{}' not found", s),
+            MalError::SymbolNotFound(s) => write!(f, "'{}' not found", s),
             MalError::InvalidType(expected, actual) => write!(
                 f,
                 "Invalid type. Expected: {}, Actual: {}",

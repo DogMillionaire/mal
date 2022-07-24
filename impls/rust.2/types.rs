@@ -1,5 +1,7 @@
 use std::hash::Hash;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
+
+use indexmap::IndexMap;
 
 use crate::env::Env;
 use crate::malerror::MalError;
@@ -12,7 +14,7 @@ pub enum MalType {
     String(String),
     Vector(Vec<Rc<MalType>>),
     Keyword(String),
-    Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
+    Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>),
     Func(MalFunc),
     True,
     False,
@@ -370,7 +372,7 @@ impl MalType {
         matches!(self, Self::Hashmap(..))
     }
 
-    pub fn try_into_hashmap(&self) -> Result<HashMap<Rc<MalType>, Rc<MalType>>, MalError> {
+    pub fn try_into_hashmap(&self) -> Result<IndexMap<Rc<MalType>, Rc<MalType>>, MalError> {
         if let Self::Hashmap(v) = self {
             Ok(v.clone())
         } else {

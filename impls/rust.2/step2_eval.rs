@@ -7,10 +7,11 @@ mod repl;
 mod types;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+
 use std::rc::Rc;
 
 use env::Env;
+use indexmap::IndexMap;
 
 use crate::malerror::MalError;
 use crate::printer::Printer;
@@ -60,8 +61,8 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
             Ok(Rc::new(MalType::Vector(new_ast)))
         }
         MalType::Hashmap(hashmap) => {
-            let mut new_ast: HashMap<Rc<MalType>, Rc<MalType>> =
-                HashMap::with_capacity(hashmap.len());
+            let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =
+                IndexMap::with_capacity(hashmap.len());
 
             for (key, value) in hashmap {
                 let new_value = eval(value.clone(), env.clone())?;

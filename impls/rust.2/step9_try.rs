@@ -45,7 +45,7 @@ fn main() {
     if let Some(file) = args.iter().nth(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
-            Err(err) => eprintln!("ERROR: {}", err),
+            Err(err) => eprintln!("{}", err),
         }
         return;
     }
@@ -59,7 +59,7 @@ fn main() {
                     println!("{}", result);
                     rl.add_history_entry(input);
                 }
-                Err(err) => eprintln!("ERROR: {}", err),
+                Err(err) => eprintln!("{}", err),
             },
             Err(_) => break,
         }

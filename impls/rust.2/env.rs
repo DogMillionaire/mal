@@ -100,7 +100,10 @@ impl Env {
                 if let Some(outer) = &self.outer {
                     return outer.borrow().get(key.to_string());
                 }
-                Err(MalError::SymbolNotFound(key))
+                Err(MalError::Exception(MalType::new_string(format!(
+                    "'{}' not found",
+                    key
+                ))))
             }
         }
     }

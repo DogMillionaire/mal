@@ -1,4 +1,6 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
+
+use indexmap::IndexMap;
 
 use crate::{
     env::{Env, MalEnv},
@@ -198,22 +200,22 @@ impl Repl {
                                     match Self::eval(body, env.clone()){
                                         Ok(ast) => current_ast = ast,
                                         Err(e) if e.is_exception() => {
-                                            if l.len() < 2 {
+                                            if l.len() < 3 {
                                                 // No catch block
                                                 return Err(e);
                                             }
 
                                             let catch = l[2].clone().try_into_list()?;
 
-                                            let catch_symbol = catch[0].try_into_symbol()?;
-                                            let _exception_symbol = catch[1].try_into_symbol()?;
+                                            let _catch_symbol = catch[0].try_into_symbol()?;
+                                            let exception_symbol = catch[1].try_into_symbol()?;
                                             let catch_body = catch[2].clone();
 
                                             let catch_bindings = vec![
-                                                MalType::symbol(catch_symbol)
+                                                MalType::symbol(exception_symbol)
                                             ];
                                             let catch_expressions = vec![
-                                                e.as_exception().unwrap()
+                                                e.as_exception().expect("Expected MalError::Exception")
                                             ];
 
                                             let catch_env = Env::new_with_outer(Some(catch_bindings), Some(catch_expressions), env.clone());
@@ -229,13 +231,19 @@ impl Repl {
                                         ));
                                     }
 
-                                    let func = l[1].clone();
+                                    let func = Self::eval(l[1].clone(), current_env.clone())?;
                                     let mut func_ast: Vec<Rc<MalType>> = vec![func];
 
-                                    l[2..l.len()-1].iter().for_each(|v| func_ast.push(v.clone()));
-                                    let arg_vec = l[l.len()-1].get_as_vec()?;
+                                    for arg in l[2..l.len()-1].iter() {
+                                        func_ast.push(
+                                            Self::eval(arg.clone(), env.clone())?);
+                                    }
 
-                                    arg_vec.iter().for_each(|v| func_ast.push(v.clone()));
+                                    let arg_vec = Self::eval(l[l.len()-1].clone(), current_env.clone())?.get_as_vec()?;
+                                    
+                                    for arg in arg_vec {
+                                        func_ast.push(Self::eval(arg, current_env.clone())?);
+                                    }
 
                                     current_ast = MalType::list(func_ast);
                                 }
@@ -247,19 +255,30 @@ impl Repl {
                                     }
 
                                     let func = l[1].clone();
-                                    let args = l[2].get_as_vec()?;
+
+
+                                    let mut args = l[2].clone();
+                                    if let Ok(symbol) = args.try_into_symbol() {
+                                        args = current_env.borrow().get(symbol)?;
+                                    }
+
+                                    let values = Self::eval(args, current_env.clone())?;
+
+                                    let args_vec = values.get_as_vec()?;
 
                                     let mut results: Vec<Rc<MalType>> = vec![];
-                                    for arg in args {
+                                    for arg in args_vec {
+                                        // println!("==> MAP: {}=>{}", &func, &arg);
                                         let func_ast = MalType::list(vec![
                                             func.clone(),
                                             arg
                                         ]);
                                         let mapped_val = Self::eval(func_ast, current_env.clone())?;
+                                        // println!("<== MAP: {}", &mapped_val);
                                         results.push(mapped_val);
                                     }
 
-                                    return Ok(MalType::list(results));
+                                    current_ast = MalType::list(results);
                                 }
                                 MalType::Func(func) => {
                                     let args = l[1..l.len()].to_vec();
@@ -472,8 +491,8 @@ impl Repl {
                 Ok(Rc::new(MalType::Vector(new_ast)))
             }
             MalType::Hashmap(hashmap) => {
-                let mut new_ast: HashMap<Rc<MalType>, Rc<MalType>> =
-                    HashMap::with_capacity(hashmap.len());
+                let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =
+                IndexMap::with_capacity(hashmap.len());
 
                 for (key, value) in hashmap {
                     let new_value = Self::eval(value.clone(), env.clone())?;

@@ -1,7 +1,8 @@
-use std::{char, collections::HashMap, rc::Rc};
+use std::{char, rc::Rc};
 
 use crate::{malerror::MalError, types::MalType};
 use assert_matches::assert_matches;
+use indexmap::IndexMap;
 
 const DEBUG: bool = false;
 
@@ -331,7 +332,7 @@ impl Reader {
     fn read_hashmap(&mut self) -> Result<Rc<MalType>, MalError> {
         let tokens = self.read_token_list(&Token::OpenBrace, &Token::CloseBrace)?;
 
-        let mut hashmap: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+        let mut hashmap: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
 
         if tokens.len() % 2 != 0 {
             return Err(MalError::UnbalancedHashmap);

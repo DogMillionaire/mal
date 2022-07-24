@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
+use indexmap::IndexMap;
+
 use crate::env::Env;
 use crate::malerror::MalError;
 use crate::printer::Printer;
@@ -170,7 +172,7 @@ impl MalCore {
             }
 
             Err(MalError::Exception(MalType::new_string(format!(
-                "Invalid index {}",
+                "Index {} out of range",
                 index
             ))))
         });
@@ -246,7 +248,7 @@ impl MalCore {
                 ));
             }
 
-            let mut map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            let mut map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
             for pairs in vals.chunks_exact(2) {
                 map.insert(pairs[0].clone(), pairs[1].clone());
             }
@@ -264,7 +266,7 @@ impl MalCore {
                 ));
             }
 
-            let mut new_map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            let mut new_map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
             for (k, v) in map {
                 new_map.insert(k, v);
             }
@@ -279,7 +281,7 @@ impl MalCore {
         Self::add_param_list_func(env.clone(), "dissoc", &|vals| {
             let map = vals[0].try_into_hashmap()?;
 
-            let mut new_map: HashMap<Rc<MalType>, Rc<MalType>> = HashMap::new();
+            let mut new_map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
             for (k, v) in map {
                 new_map.insert(k, v);
             }
@@ -292,6 +294,9 @@ impl MalCore {
         });
 
         Self::add_binary_func(env.clone(), "get", &|map, key| {
+            if map.is_nil() {
+                return Ok(Rc::new(MalType::Nil));
+            }
             let m = map.try_into_hashmap()?;
 
             match m.get(&key) {
