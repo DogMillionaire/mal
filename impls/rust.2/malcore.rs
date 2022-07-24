@@ -316,9 +316,9 @@ impl MalCore {
         Self::add_unary_func(env.clone(), "vals", &|a| {
             let map = a.try_into_hashmap()?;
 
-            let keys: Vec<_> = map.keys().map(|v| v.clone()).collect();
+            let values: Vec<_> = map.values().map(|v| v.clone()).collect();
 
-            Ok(MalType::list(keys))
+            Ok(MalType::list(values))
         });
 
         instance
