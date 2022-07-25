@@ -19,17 +19,18 @@ pub enum MalType {
     Vector(Vec<Rc<MalType>>, MalMeta),
     Keyword(String),
     Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>, MalMeta),
-    Func(MalFunc),
+    Func(MalFunc, MalMeta),
     True,
     False,
     Atom(RefCell<Rc<MalType>>),
 }
 
 /// Wrapper for a function
+#[derive(Clone)]
 pub struct MalFunc {
     name: String,
     parameters: Vec<Rc<MalType>>,
-    body: Option<Box<MalFn>>,
+    body: Option<Rc<MalFn>>,
     env: Rc<RefCell<Env>>,
     body_ast: Rc<MalType>,
     is_macro: RefCell<bool>,
@@ -76,7 +77,7 @@ impl MalFunc {
         Self {
             name,
             parameters,
-            body: Some(Box::new(body)),
+            body: Some(Rc::new(body)),
             env,
             body_ast,
             is_macro: RefCell::new(false),
@@ -102,7 +103,7 @@ impl MalFunc {
         self.body_ast.clone()
     }
 
-    pub fn body(&self) -> Option<&Box<MalFn>> {
+    pub fn body(&self) -> Option<&Rc<MalFn>> {
         self.body.as_ref()
     }
 
@@ -136,7 +137,7 @@ impl MalType {
             MalType::Vector(_, _) => String::from("MalType::Vector"),
             MalType::Keyword(_) => String::from("MalType::Keyword"),
             MalType::Hashmap(_, _) => String::from("MalType::Hashmap"),
-            MalType::Func(_) => String::from("MalType::Func"),
+            MalType::Func(_, _) => String::from("MalType::Func"),
             MalType::True => String::from("MalType::True"),
             MalType::False => String::from("MalType::False"),
             MalType::Atom(_) => String::from("MalType::Atom"),
@@ -240,7 +241,7 @@ impl MalType {
     }
 
     pub fn as_func(&self) -> Option<&MalFunc> {
-        if let Self::Func(v) = self {
+        if let Self::Func(v, _) = self {
             Some(v)
         } else {
             None
@@ -295,7 +296,7 @@ impl MalType {
     }
 
     pub fn try_into_func(&self) -> Result<&MalFunc, MalError> {
-        if let Self::Func(v) = self {
+        if let Self::Func(v, _) = self {
             Ok(v)
         } else {
             Err(MalError::InvalidType(
@@ -417,6 +418,8 @@ impl MalType {
         match self {
             MalType::List(_, meta) => meta.clone(),
             MalType::Vector(_, meta) => meta.clone(),
+            MalType::Hashmap(_, meta) => meta.clone(),
+            MalType::Func(_, meta) => meta.clone(),
             _ => None,
         }
     }
@@ -427,6 +430,10 @@ impl MalType {
             MalType::Vector(vec, _) => {
                 Ok(Rc::new(MalType::Vector(vec.clone(), Some(meta.clone()))))
             }
+            MalType::Hashmap(map, _) => {
+                Ok(Rc::new(MalType::Hashmap(map.clone(), Some(meta.clone()))))
+            }
+            MalType::Func(func, meta) => Ok(Rc::new(MalType::Func(func.clone(), meta.clone()))),
             _ => Err(MalError::InvalidType(
                 "MalType::List, MalType::Vector, MalType::Hashmap or MalType::Func".to_string(),
                 self.type_name(),
@@ -475,7 +482,7 @@ impl std::fmt::Debug for MalType {
             Self::Vector(arg0, _) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0, _) => f.debug_tuple("Hashmap").field(arg0).finish(),
-            Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
+            Self::Func(arg0, _) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
             Self::Atom(v) => f.debug_tuple("Atom").field(v).finish(),
@@ -499,7 +506,7 @@ impl std::hash::Hash for MalType {
                     entry.1.hash(state);
                 }
             }
-            MalType::Func(func) => func.hash(state),
+            MalType::Func(func, _) => func.hash(state),
             MalType::True => core::mem::discriminant(self).hash(state),
             MalType::False => core::mem::discriminant(self).hash(state),
             MalType::Atom(v) => v.borrow().hash(state),

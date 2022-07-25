@@ -493,13 +493,16 @@ impl MalCore {
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> { func(param_values, env) };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            vec![],
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                vec![],
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -515,13 +518,16 @@ impl MalCore {
                     param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> { func(param_values) };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            vec![],
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                vec![],
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -547,13 +553,16 @@ impl MalCore {
             func(lhs, rhs, env)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                params,
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -579,13 +588,16 @@ impl MalCore {
             func(lhs, rhs)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                params,
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -607,13 +619,16 @@ impl MalCore {
             func(a, env)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                params,
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -631,13 +646,16 @@ impl MalCore {
                     _param_values: Vec<Rc<MalType>>|
          -> Result<Rc<MalType>, MalError> { func() };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                params,
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -659,13 +677,16 @@ impl MalCore {
             func(a)
         };
 
-        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-            Some(name.to_string()),
-            params,
-            body,
-            env.clone(),
-            Rc::new(MalType::Nil),
-        )));
+        let malfunc = Rc::new(MalType::Func(
+            MalFunc::new_with_closure(
+                Some(name.to_string()),
+                params,
+                body,
+                env.clone(),
+                Rc::new(MalType::Nil),
+            ),
+            None,
+        ));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }
@@ -698,7 +719,7 @@ impl MalCore {
             Rc::new(MalType::Nil),
         );
 
-        let malfunc = Rc::new(MalType::Func(func));
+        let malfunc = Rc::new(MalType::Func(func, None));
 
         env.borrow_mut().set(name.to_string(), malfunc);
     }

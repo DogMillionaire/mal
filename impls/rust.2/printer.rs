@@ -24,7 +24,7 @@ impl Display for MalType {
                 let values: Vec<_> = h.iter().map(|v| format!("{} {}", v.0, v.1)).collect();
                 f.write_str(&format!("{{{}}}", values.join(" ")))
             }
-            MalType::Func(func) => f.write_str(&format!("#<function:{}>", func.name())),
+            MalType::Func(func, _) => f.write_str(&format!("#<function:{}>", func.name())),
             MalType::True => f.write_str("true"),
             MalType::False => f.write_str("false"),
             MalType::Atom(v) => f.write_str(&format!("Atom({:?})", v)),
@@ -81,7 +81,7 @@ impl Printer {
                     .collect();
                 format!("{}{}{}", '{', values.join(" "), '}')
             }
-            MalType::Func(func) => format!("#<function:{}>", func.name()),
+            MalType::Func(func, _) => format!("#<function:{}>", func.name()),
             MalType::True => String::from("true"),
             MalType::False => String::from("false"),
             MalType::Atom(a) => format!(

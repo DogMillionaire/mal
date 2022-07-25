@@ -134,13 +134,16 @@ fn add_numeric_func(
         Ok(Rc::new(MalType::Number(func(a, b))))
     };
 
-    let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
-        Some(name.to_string()),
-        params,
-        body,
-        env.clone(),
-        Rc::new(MalType::Nil),
-    )));
+    let malfunc = Rc::new(MalType::Func(
+        MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        ),
+        None,
+    ));
 
     env.borrow_mut().set(name.to_string(), malfunc);
 }

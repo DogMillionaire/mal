@@ -41,7 +41,8 @@ fn add_func2(env: Rc<RefCell<Env>>, name: String, value: &'static dyn Fn(isize, 
         Rc::new(MalType::Nil),
     );
 
-    env.borrow_mut().set(name, Rc::new(MalType::Func(malfunc)))
+    env.borrow_mut()
+        .set(name, Rc::new(MalType::Func(malfunc, None)))
 }
 
 fn main() {

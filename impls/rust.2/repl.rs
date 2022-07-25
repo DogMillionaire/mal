@@ -205,7 +205,7 @@ impl Repl {
                         func_body,
                     );
 
-                    return Ok(Rc::new(MalType::Func(mal)));
+                    return Ok(Rc::new(MalType::Func(mal, None)));
                 }
                 //     _default_:    f, args = eval_ast(ast, env)
                 _ => {
