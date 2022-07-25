@@ -232,9 +232,10 @@ impl MalCore {
             let values_to_map = values.get_as_vec()?;
             let mut results = Vec::with_capacity(values_to_map.len());
 
+            let func_to_apply = func.try_into_func()?;
+
             for value in values_to_map {
-                let func_ast = MalType::list(vec![func.clone(), value.clone()]);
-                results.push(Repl::eval2(func_ast, env.clone())?);
+                results.push(func_to_apply.apply(vec![value.clone()])?);
             }
 
             return Ok(MalType::list(results));
