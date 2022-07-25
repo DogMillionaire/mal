@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use indexmap::IndexMap;
+use log::debug;
 
 use crate::{
     env::{Env, MalEnv},
@@ -9,23 +10,6 @@ use crate::{
     reader::Reader,
     types::{self, MalType},
 };
-
-#[allow(unused_must_use)]
-#[allow(unused_macros)]
-#[cfg(debug_assertions)]
-macro_rules! debug {
-    ($x:expr) => {
-        dbg!($x)
-    };
-}
-
-#[allow(unused_macros)]
-#[cfg(not(debug_assertions))]
-macro_rules! debug {
-    ($x:expr) => {
-        std::convert::identity($x)
-    };
-}
 
 #[allow(dead_code)]
 pub struct Repl {
@@ -55,6 +39,7 @@ impl Repl {
         let mut current_ast = ast;
         let mut current_env = env;
         loop {
+            debug!("eval: {}", current_ast);
             // println!("eval={:?}", current_ast);
             //     if not list?(ast): return eval_ast(ast, env)
             if !current_ast.is_list() {
@@ -118,11 +103,13 @@ impl Repl {
                 MalType::Symbol(s) if s == "defmacro!" => {
                     let val = Self::eval2(ast_list[2].clone(), current_env.clone())?;
 
-                    val.try_into_func()?.set_is_macro();
+                    let new_func = val.try_into_func()?.clone();
+                    new_func.set_is_macro();
 
-                    current_env
-                        .borrow_mut()
-                        .set(ast_list[1].try_into_symbol().unwrap(), val.clone());
+                    current_env.borrow_mut().set(
+                        ast_list[1].try_into_symbol().unwrap(),
+                        Rc::new(MalType::Func(new_func, None)),
+                    );
                     return Ok(val);
                 }
                 //     'macroexpand: return macroexpand(ast[1], env)
@@ -396,6 +383,7 @@ impl Repl {
     }
 
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
+        debug!("eval_ast: {}", ast);
         match ast.as_ref() {
             MalType::Symbol(name) => env.borrow().get(name.to_string()),
             MalType::List(list, _) => {
