@@ -2,6 +2,7 @@ use std::hash::Hash;
 use std::{cell::RefCell, rc::Rc};
 
 use indexmap::IndexMap;
+use log::debug;
 
 use crate::env::Env;
 use crate::malerror::MalError;
@@ -416,15 +417,16 @@ impl MalType {
 
     pub fn get_meta(&self) -> Option<Rc<MalType>> {
         match self {
-            MalType::List(_, meta) => meta.clone(),
-            MalType::Vector(_, meta) => meta.clone(),
-            MalType::Hashmap(_, meta) => meta.clone(),
-            MalType::Func(_, meta) => meta.clone(),
+            MalType::List(_, meta)
+            | MalType::Vector(_, meta)
+            | MalType::Hashmap(_, meta)
+            | MalType::Func(_, meta) => meta.clone(),
             _ => None,
         }
     }
 
     pub fn set_meta(&self, meta: Rc<MalType>) -> Result<Rc<MalType>, MalError> {
+        debug!("Adding metadata {} to {}", meta, self);
         match self {
             MalType::List(list, _) => Ok(Rc::new(MalType::List(list.clone(), Some(meta.clone())))),
             MalType::Vector(vec, _) => {

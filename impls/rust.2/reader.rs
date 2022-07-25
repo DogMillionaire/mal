@@ -2,6 +2,7 @@ use std::{char, rc::Rc};
 
 use crate::{malerror::MalError, types::MalType};
 use indexmap::IndexMap;
+use log::trace;
 
 const DEBUG: bool = false;
 
@@ -34,6 +35,7 @@ pub(crate) struct Reader {
 
 impl Reader {
     pub fn read_str(input: String) -> Result<Self, MalError> {
+        trace!("read_str: {}", input);
         let tokens = Self::tokenize(&input);
         if DEBUG {
             eprintln!("{:#?}", tokens);
@@ -172,7 +174,7 @@ impl Reader {
                         let (end, string) =
                             Self::read_until(&chars, idx + 1, &|c, _| !c.is_ascii_digit(), false)?;
 
-                        idx = end;
+                        idx = end - 1;
 
                         Token::Number(match string.parse::<isize>() {
                             Ok(it) => -it,
@@ -225,9 +227,7 @@ impl Reader {
                     Token::Atom(string)
                 }
             };
-            if DEBUG {
-                eprintln!("Adding token: {:?}", token);
-            }
+            trace!("Adding token: {:?}", token);
             tokens.push(token);
 
             idx += 1;
@@ -277,9 +277,7 @@ impl Reader {
 
     pub fn read_form(&mut self) -> Result<Rc<MalType>, MalError> {
         let next_token = self.peek();
-        if DEBUG {
-            eprintln!("read_form: {:?}", next_token);
-        }
+        trace!("read_form: {:?}", next_token);
         match next_token {
             Token::OpenParen => self.read_list(),
             &Token::OpenSquare => self.read_vector(),
@@ -545,6 +543,19 @@ mod tests {
             assert_matches!(l[0].as_ref(), &MalType::Symbol(_), "First list element should be a symbol");
             assert_matches!(l[1].as_ref(), &MalType::Vector(_, _), "First list element should be a vector");
             assert_matches!(l[2].as_ref(), &MalType::Hashmap(_, _), "Second list element should be a hashmap");
+        });
+    }
+
+    #[test]
+    fn parse_list_with_negative_number() {
+        let mut reader = Reader::read_str(r#"(number? -1)"#.to_string()).expect("Failed to read");
+
+        let result = reader.read_form().expect("Failed to parse");
+
+        assert_matches!(result.as_ref(), MalType::List(l, _) => {
+            assert_eq!(2, l.len(), "List should have 2 elements");
+            assert_matches!(l[0].as_ref(), &MalType::Symbol(_) , "First list element should be a symbol");
+            assert_matches!(l[1].as_ref(), &MalType::Number(-1), "Second list element should be a number");
         });
     }
 
