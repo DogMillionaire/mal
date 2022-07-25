@@ -433,7 +433,7 @@ impl MalType {
             MalType::Hashmap(map, _) => {
                 Ok(Rc::new(MalType::Hashmap(map.clone(), Some(meta.clone()))))
             }
-            MalType::Func(func, meta) => Ok(Rc::new(MalType::Func(func.clone(), meta.clone()))),
+            MalType::Func(func, _) => Ok(Rc::new(MalType::Func(func.clone(), Some(meta.clone())))),
             _ => Err(MalError::InvalidType(
                 "MalType::List, MalType::Vector, MalType::Hashmap or MalType::Func".to_string(),
                 self.type_name(),
