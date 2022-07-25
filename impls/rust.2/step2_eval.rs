@@ -52,13 +52,13 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
             }
             Ok(MalType::new_list(new_ast))
         }
-        MalType::Vector(vector) => {
+        MalType::Vector(vector, _) => {
             let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
             for value in vector {
                 let new_value = eval(value.clone(), env.clone())?;
                 new_ast.push(new_value);
             }
-            Ok(Rc::new(MalType::Vector(new_ast)))
+            Ok(MalType::new_vector(new_ast))
         }
         MalType::Hashmap(hashmap) => {
             let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =

@@ -15,7 +15,7 @@ impl Display for MalType {
             MalType::Symbol(name) => f.write_str(name),
             MalType::Number(n) => f.write_str(&format!("{}", n)),
             MalType::String(s) => f.write_str(&format!("\"{}\"", s)),
-            MalType::Vector(v) => {
+            MalType::Vector(v, _) => {
                 let values: Vec<_> = v.iter().map(|v| format!("{}", v)).collect();
                 f.write_str(&format!("[{}]", values.join(" ")))
             }
@@ -66,7 +66,7 @@ impl Printer {
             MalType::Symbol(s) => s.to_string(),
             MalType::Number(n) => format!("{}", n),
             MalType::String(s) => Self::print_string(s, print_readonly),
-            MalType::Vector(v) => Self::print_seperated(v, '[', ']', " ", print_readonly),
+            MalType::Vector(v, _) => Self::print_seperated(v, '[', ']', " ", print_readonly),
             MalType::Keyword(kw) => format!(":{}", kw),
             MalType::Hashmap(h) => {
                 let values: Vec<_> = h

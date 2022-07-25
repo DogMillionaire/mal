@@ -349,10 +349,10 @@ impl Reader {
     }
 
     fn read_vector(&mut self) -> Result<Rc<MalType>, MalError> {
-        Ok(Rc::new(MalType::Vector(self.read_token_list(
+        Ok(MalType::new_vector(self.read_token_list(
             &Token::OpenSquare,
             &Token::CloseSquare,
-        )?)))
+        )?))
     }
 
     fn read_list(&mut self) -> Result<Rc<MalType>, MalError> {
@@ -543,7 +543,7 @@ mod tests {
         assert_matches!(result.as_ref(), MalType::List(l, _) => {
             assert_eq!(3, l.len(), "List should have 3 elements");
             assert_matches!(l[0].as_ref(), &MalType::Symbol(_), "First list element should be a symbol");
-            assert_matches!(l[1].as_ref(), &MalType::Vector(_), "First list element should be a vector");
+            assert_matches!(l[1].as_ref(), &MalType::Vector(_, _), "First list element should be a vector");
             assert_matches!(l[2].as_ref(), &MalType::Hashmap(_), "Second list element should be a hashmap");
         });
     }

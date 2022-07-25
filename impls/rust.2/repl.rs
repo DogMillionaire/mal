@@ -357,7 +357,7 @@ impl Repl {
                     return Ok(current_result);
                 }
             }
-            MalType::Vector(v) => {
+            MalType::Vector(v, _) => {
                 if v.is_empty() {
                     return Ok(MalType::new_list(vec![
                         MalType::symbol("vec".to_string()),
@@ -406,13 +406,13 @@ impl Repl {
                 }
                 Ok(MalType::new_list(new_ast))
             }
-            MalType::Vector(vector) => {
+            MalType::Vector(vector, _) => {
                 let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
                 for value in vector {
                     let new_value = Self::eval2(value.clone(), env.clone())?;
                     new_ast.push(new_value);
                 }
-                Ok(Rc::new(MalType::Vector(new_ast)))
+                Ok(MalType::new_vector(new_ast))
             }
             MalType::Hashmap(hashmap) => {
                 let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =

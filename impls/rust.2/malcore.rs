@@ -173,8 +173,8 @@ impl MalCore {
         });
 
         Self::add_unary_func(env.clone(), "vec", &|list| match list.as_ref() {
-            MalType::Vector(_) => return Ok(list),
-            MalType::List(l, _) => return Ok(Rc::new(MalType::Vector(l.clone()))),
+            MalType::Vector(_, _) => return Ok(list),
+            MalType::List(l, _) => return Ok(MalType::new_vector(l.clone())),
             _ => {
                 return Err(MalError::InvalidType(
                     "MalType::Vector or MalType::List".to_string(),
@@ -198,7 +198,7 @@ impl MalCore {
         });
 
         Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
-            MalType::List(v, _) | MalType::Vector(v) => {
+            MalType::List(v, _) | MalType::Vector(v, _) => {
                 if v.is_empty() {
                     return Ok(Rc::new(MalType::Nil));
                 }
@@ -211,7 +211,7 @@ impl MalCore {
             )),
         });
         Self::add_unary_func(env.clone(), "rest", &|a| match a.as_ref() {
-            MalType::List(v, _) | MalType::Vector(v) => {
+            MalType::List(v, _) | MalType::Vector(v, _) => {
                 if v.is_empty() {
                     return Ok(MalType::new_list(vec![]));
                 }
@@ -277,9 +277,7 @@ impl MalCore {
             Ok(MalType::bool(a.is_keyword()))
         });
 
-        Self::add_param_list_func(env.clone(), "vector", &|vals| {
-            Ok(Rc::new(MalType::Vector(vals)))
-        });
+        Self::add_param_list_func(env.clone(), "vector", &|vals| Ok(MalType::new_vector(vals)));
         Self::add_unary_func(env.clone(), "vector?", &|a| {
             Ok(MalType::bool(a.is_vector()))
         });
@@ -412,7 +410,7 @@ impl MalCore {
         });
         // seq,
         Self::add_unary_func(env.clone(), "seq", &|val| match val.as_ref() {
-            MalType::List(vec, _) | MalType::Vector(vec) => {
+            MalType::List(vec, _) | MalType::Vector(vec, _) => {
                 if vec.is_empty() {
                     return Ok(Rc::new(MalType::Nil));
                 }
@@ -443,13 +441,13 @@ impl MalCore {
                     let mut new_list = vec![];
                     to_add.rev().for_each(|v| new_list.push(v.clone()));
                     list.iter().for_each(|v| new_list.push(v.clone()));
-                    Ok(Rc::new(MalType::Vector(new_list)))
+                    Ok(MalType::new_vector(new_list))
                 }
-                MalType::Vector(vector) => {
+                MalType::Vector(vector, _) => {
                     let mut new_vector = vec![];
                     vector.iter().for_each(|v| new_vector.push(v.clone()));
                     to_add.for_each(|v| new_vector.push(v.clone()));
-                    Ok(Rc::new(MalType::Vector(new_vector)))
+                    Ok(MalType::new_vector(new_vector))
                 }
                 _ => Err(MalError::Exception(MalType::new_string(
                     "conj can only be called on List or Vector".to_string(),

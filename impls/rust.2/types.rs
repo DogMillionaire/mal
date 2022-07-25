@@ -14,7 +14,7 @@ pub enum MalType {
     Symbol(String),
     Number(isize),
     String(String),
-    Vector(Vec<Rc<MalType>>),
+    Vector(Vec<Rc<MalType>>, MalMeta),
     Keyword(String),
     Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>),
     Func(MalFunc),
@@ -131,7 +131,7 @@ impl MalType {
             MalType::Symbol(_) => String::from("MalType::Symbol"),
             MalType::Number(_) => String::from("MalType::Number"),
             MalType::String(_) => String::from("MalType::String"),
-            MalType::Vector(_) => String::from("MalType::Vector"),
+            MalType::Vector(_, _) => String::from("MalType::Vector"),
             MalType::Keyword(_) => String::from("MalType::Keyword"),
             MalType::Hashmap(_) => String::from("MalType::Hashmap"),
             MalType::Func(_) => String::from("MalType::Func"),
@@ -144,7 +144,7 @@ impl MalType {
     pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
             Self::List(v, _) => Ok(v.clone()),
-            Self::Vector(v) => Ok(v.clone()),
+            Self::Vector(v, _) => Ok(v.clone()),
             _ => Err(MalError::InvalidType(
                 String::from("MalType::List"),
                 self.type_name(),
@@ -186,7 +186,7 @@ impl MalType {
     }
 
     pub fn try_into_vector(self) -> Result<Vec<Rc<MalType>>, MalError> {
-        if let Self::Vector(v) = self {
+        if let Self::Vector(v, _) = self {
             Ok(v)
         } else {
             Err(MalError::InvalidType(
@@ -206,7 +206,7 @@ impl MalType {
 
     pub fn get_as_vec(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         return match self {
-            MalType::Vector(v) => Ok(v.clone()),
+            MalType::Vector(v, _) => Ok(v.clone()),
             MalType::List(l, _) => Ok(l.clone()),
             _ => Err(MalError::InvalidType(
                 "MalType::Vector or MalType::List".to_string(),
@@ -218,9 +218,9 @@ impl MalType {
     fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
         let (this_vec, other_vec) = match (this, other) {
             (MalType::List(l1, _), MalType::List(l2, _)) => (l1, l2),
-            (MalType::List(l1, _), MalType::Vector(l2)) => (l1, l2),
-            (MalType::Vector(l1), MalType::Vector(l2)) => (l1, l2),
-            (MalType::Vector(l1), MalType::List(l2, _)) => (l1, l2),
+            (MalType::List(l1, _), MalType::Vector(l2, _)) => (l1, l2),
+            (MalType::Vector(l1, _), MalType::Vector(l2, _)) => (l1, l2),
+            (MalType::Vector(l1, _), MalType::List(l2, _)) => (l1, l2),
             _ => unreachable!(),
         };
 
@@ -414,20 +414,26 @@ impl MalType {
     pub fn get_meta(&self) -> Option<Rc<MalType>> {
         match self {
             MalType::List(_, meta) => meta.clone(),
+            MalType::Vector(_, meta) => meta.clone(),
             _ => None,
         }
     }
 
     pub fn set_meta(&self, meta: Rc<MalType>) -> Result<Rc<MalType>, MalError> {
         match self {
-            MalType::List(list, _meta) => {
-                Ok(Rc::new(MalType::List(list.clone(), Some(meta.clone()))))
+            MalType::List(list, _) => Ok(Rc::new(MalType::List(list.clone(), Some(meta.clone())))),
+            MalType::Vector(vec, _) => {
+                Ok(Rc::new(MalType::Vector(vec.clone(), Some(meta.clone()))))
             }
             _ => Err(MalError::InvalidType(
-                "MalType::List".to_string(),
+                "MalType::List, MalType::Vector, MalType::Hashmap or MalType::Func".to_string(),
                 self.type_name(),
             )),
         }
+    }
+
+    pub fn new_vector(values: Vec<Rc<MalType>>) -> Rc<MalType> {
+        Rc::new(MalType::Vector(values.clone(), None))
     }
 }
 
@@ -439,9 +445,9 @@ impl PartialEq for MalType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::List(_, _), Self::List(_, _))
-            | (Self::List(_, _), Self::Vector(_))
-            | (Self::Vector(_), Self::Vector(_))
-            | (Self::Vector(_), Self::List(_, _)) => MalType::compare_as_vec(self, other),
+            | (Self::List(_, _), Self::Vector(_, _))
+            | (Self::Vector(_, _), Self::Vector(_, _))
+            | (Self::Vector(_, _), Self::List(_, _)) => MalType::compare_as_vec(self, other),
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
@@ -460,7 +466,7 @@ impl std::fmt::Debug for MalType {
             Self::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
             Self::Number(arg0) => f.debug_tuple("Number").field(arg0).finish(),
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Vector(arg0) => f.debug_tuple("Vector").field(arg0).finish(),
+            Self::Vector(arg0, _) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
             Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
             Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
@@ -479,7 +485,7 @@ impl std::hash::Hash for MalType {
             MalType::Symbol(s) => s.hash(state),
             MalType::Number(n) => n.hash(state),
             MalType::String(s) => s.hash(state),
-            MalType::Vector(v) => v.hash(state),
+            MalType::Vector(v, _) => v.hash(state),
             MalType::Keyword(k) => k.hash(state),
             MalType::Hashmap(h) => {
                 for entry in h {
@@ -505,7 +511,7 @@ mod tests {
     fn match_vector_list() {
         let elements = vec![Rc::new(MalType::Number(1)), Rc::new(MalType::Number(2))];
         let list = MalType::List(elements.clone(), None);
-        let vector = MalType::Vector(elements);
+        let vector = MalType::Vector(elements, None);
 
         assert_eq!(list, vector);
     }
