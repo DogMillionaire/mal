@@ -40,7 +40,7 @@ fn main() {
 
     repl.env()
         .borrow_mut()
-        .set(String::from("*ARGV*"), MalType::list(arg_list));
+        .set(String::from("*ARGV*"), MalType::new_list(arg_list));
 
     repl.env().borrow_mut().set(
         String::from("*host-language*"),
@@ -50,9 +50,9 @@ fn main() {
     if let Some(file) = args.iter().nth(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
-            Err(err) => eprintln!("{}", err),
+            Err(err) => println!("Error: {}", err),
         }
-        return;
+        //return;
     }
 
     repl.rep(r#"(println (str "Mal [" *host-language* "]"))"#.to_string())
@@ -67,9 +67,15 @@ fn main() {
                     println!("{}", result);
                     rl.add_history_entry(input);
                 }
-                Err(err) => eprintln!("{}", err),
+                Err(err) => println!("Error: {}", err),
             },
-            Err(_) => break,
+            Err(e) => match e {
+                rustyline::error::ReadlineError::Eof => break,
+                _ => {
+                    println!("ReadLine error: {}", e);
+                    break;
+                }
+            },
         }
     }
     rl.save_history("history.txt").unwrap();

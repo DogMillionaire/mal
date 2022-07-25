@@ -64,7 +64,7 @@ impl Env {
 
                         env.set(
                             b[i + 1].try_into_symbol().unwrap(),
-                            Rc::new(MalType::List(remaining_exprs)),
+                            MalType::new_list(remaining_exprs),
                         );
                         break;
                     } else {

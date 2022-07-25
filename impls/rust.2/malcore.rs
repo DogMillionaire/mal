@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::time::{self, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
 use indexmap::IndexMap;
@@ -39,7 +39,7 @@ impl MalCore {
             Self::print_str(a, " ", false, true, false)
         });
 
-        Self::add_param_list_func(env.clone(), "list", &|a| Ok(Rc::new(MalType::List(a))));
+        Self::add_param_list_func(env.clone(), "list", &|a| Ok(MalType::new_list(a)));
 
         Self::add_unary_func(env.clone(), "list?", &|a| {
             let result = match a.is_list() {
@@ -141,7 +141,7 @@ impl MalCore {
                 .iter()
                 .for_each(|p| func_ast.push(p.clone()));
 
-            let new_value = Repl::eval2(MalType::list(func_ast), env.clone())?;
+            let new_value = Repl::eval2(MalType::new_list(func_ast), env.clone())?;
             atom_value.replace(new_value.clone());
 
             Ok(new_value)
@@ -159,7 +159,7 @@ impl MalCore {
             new_list.push(arg1);
             list.iter().for_each(|v| new_list.push(v.clone()));
 
-            Ok(MalType::list(new_list))
+            Ok(MalType::new_list(new_list))
         });
 
         Self::add_param_list_func(env.clone(), "concat", &|args| {
@@ -169,12 +169,12 @@ impl MalCore {
                 list.iter().for_each(|v| new_list.push(v.clone()));
             }
 
-            Ok(MalType::list(new_list))
+            Ok(MalType::new_list(new_list))
         });
 
         Self::add_unary_func(env.clone(), "vec", &|list| match list.as_ref() {
             MalType::Vector(_) => return Ok(list),
-            MalType::List(l) => return Ok(Rc::new(MalType::Vector(l.clone()))),
+            MalType::List(l, _) => return Ok(Rc::new(MalType::Vector(l.clone()))),
             _ => {
                 return Err(MalError::InvalidType(
                     "MalType::Vector or MalType::List".to_string(),
@@ -198,7 +198,7 @@ impl MalCore {
         });
 
         Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
-            MalType::List(v) | MalType::Vector(v) => {
+            MalType::List(v, _) | MalType::Vector(v) => {
                 if v.is_empty() {
                     return Ok(Rc::new(MalType::Nil));
                 }
@@ -211,14 +211,14 @@ impl MalCore {
             )),
         });
         Self::add_unary_func(env.clone(), "rest", &|a| match a.as_ref() {
-            MalType::List(v) | MalType::Vector(v) => {
+            MalType::List(v, _) | MalType::Vector(v) => {
                 if v.is_empty() {
-                    return Ok(MalType::list(vec![]));
+                    return Ok(MalType::new_list(vec![]));
                 }
                 let rest = v.iter().skip(1).map(|v| v.clone()).collect();
-                return Ok(MalType::list(rest));
+                return Ok(MalType::new_list(rest));
             }
-            MalType::Nil => Ok(MalType::list(vec![])),
+            MalType::Nil => Ok(MalType::new_list(vec![])),
             _ => Err(MalError::InvalidType(
                 "MalType::List, MalType::Vector or MalType::Nil".to_string(),
                 a.type_name(),
@@ -239,7 +239,7 @@ impl MalCore {
                 results.push(func_to_apply.apply(vec![value.clone()])?);
             }
 
-            return Ok(MalType::list(results));
+            return Ok(MalType::new_list(results));
         });
         Self::add_param_list_func(env.clone(), "apply", &|params| {
             let func = params[0].clone();
@@ -366,14 +366,14 @@ impl MalCore {
 
             let keys: Vec<_> = map.keys().map(|v| v.clone()).collect();
 
-            Ok(MalType::list(keys))
+            Ok(MalType::new_list(keys))
         });
         Self::add_unary_func(env.clone(), "vals", &|a| {
             let map = a.try_into_hashmap()?;
 
             let values: Vec<_> = map.values().map(|v| v.clone()).collect();
 
-            Ok(MalType::list(values))
+            Ok(MalType::new_list(values))
         });
 
         Self::add_unary_func(env.clone(), "readline", &|prompt| {
@@ -395,17 +395,11 @@ impl MalCore {
             Ok(MalType::number(ms))
         });
         // meta,
-        Self::add_unary_func(env.clone(), "meta", &|_val| {
-            Err(MalError::Exception(MalType::new_string(
-                "Not implemented".to_string(),
-            )))
+        Self::add_unary_func(env.clone(), "meta", &|val| {
+            Ok(val.get_meta().unwrap_or(Rc::new(MalType::Nil)))
         });
         // with-meta,
-        Self::add_binary_func(env.clone(), "with-meta", &|_val, _meta| {
-            Err(MalError::Exception(MalType::new_string(
-                "Not implemented".to_string(),
-            )))
-        });
+        Self::add_binary_func(env.clone(), "with-meta", &|val, meta| val.set_meta(meta));
         // fn?
         Self::add_unary_func(env.clone(), "fn?", &|f| Ok(MalType::bool(f.is_func())));
         // string?,
@@ -418,11 +412,11 @@ impl MalCore {
         });
         // seq,
         Self::add_unary_func(env.clone(), "seq", &|val| match val.as_ref() {
-            MalType::List(vec) | MalType::Vector(vec) => {
+            MalType::List(vec, _) | MalType::Vector(vec) => {
                 if vec.is_empty() {
                     return Ok(Rc::new(MalType::Nil));
                 }
-                Ok(MalType::list(vec.clone()))
+                Ok(MalType::new_list(vec.clone()))
             }
             MalType::String(s) => {
                 if s.is_empty() {
@@ -432,7 +426,7 @@ impl MalCore {
                     .chars()
                     .map(|c| MalType::new_string(String::from(c)))
                     .collect();
-                Ok(MalType::list(chars))
+                Ok(MalType::new_list(chars))
             }
             MalType::Nil => Ok(Rc::new(MalType::Nil)),
             _ => Err(MalError::Exception(MalType::new_string(
@@ -445,7 +439,7 @@ impl MalCore {
             let to_add = params.iter().skip(1).map(|v| v.clone());
 
             match list_or_vector.as_ref() {
-                MalType::List(list) => {
+                MalType::List(list, _) => {
                     let mut new_list = vec![];
                     to_add.rev().for_each(|v| new_list.push(v.clone()));
                     list.iter().for_each(|v| new_list.push(v.clone()));

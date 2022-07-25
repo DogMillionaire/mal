@@ -44,13 +44,13 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
     debug!(&ast);
     match ast.as_ref() {
         MalType::Symbol(name) => env.borrow().get(name.to_string()),
-        MalType::List(list) => {
+        MalType::List(list, _) => {
             let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(list.len());
             for value in list {
                 let new_value = eval(value.clone(), env.clone())?;
                 new_ast.push(new_value);
             }
-            Ok(Rc::new(MalType::List(new_ast)))
+            Ok(MalType::new_list(new_ast))
         }
         MalType::Vector(vector) => {
             let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
@@ -77,7 +77,7 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
 fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
     debug!(&ast);
     match ast.clone().as_ref() {
-        MalType::List(l) => {
+        MalType::List(l, _) => {
             if l.is_empty() {
                 Ok(ast)
             } else {

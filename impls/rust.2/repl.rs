@@ -161,7 +161,7 @@ impl Repl {
                         .iter()
                         .map(|v| v.clone())
                         .collect();
-                    let val = Self::eval_ast(MalType::list(args), current_env.clone())?;
+                    let val = Self::eval_ast(MalType::new_list(args), current_env.clone())?;
                     current_ast = val
                         .try_into_list()?
                         .last()
@@ -296,7 +296,7 @@ impl Repl {
         //  and that symbol refers to a function in the env environment and that
         // function has the is_macro attribute set to true. Otherwise, it returns false.
         match ast.as_ref() {
-            MalType::List(l) if l.len() > 0 => {
+            MalType::List(l, _) if l.len() > 0 => {
                 if let Some(func) = Self::get_macro_symbol(l[0].clone(), env) {
                     let args: Vec<_> = l[1..].iter().map(|v| v.clone()).collect();
                     return Some((func, args));
@@ -309,7 +309,7 @@ impl Repl {
 
     fn is_list_starting_with_symbol(ast: Rc<MalType>, symbol: &str) -> bool {
         match ast.clone().as_ref() {
-            MalType::List(list) if !list.is_empty() => {
+            MalType::List(list, _) if !list.is_empty() => {
                 if let Ok(s) = list[0].try_into_symbol() {
                     return s == symbol;
                 }
@@ -321,13 +321,13 @@ impl Repl {
 
     fn quasiquote(ast: Rc<MalType>, env: MalEnv) -> Result<Rc<MalType>, MalError> {
         match ast.clone().as_ref() {
-            MalType::List(list) => {
+            MalType::List(list, _) => {
                 if Self::is_list_starting_with_symbol(ast, "unquote") {
                     // If ast is a list starting with the "unquote" symbol, return its second element.
                     return Ok(list[1].clone());
                 } else {
                     // If ast is a list failing previous test, the result will be a list populated by the following process.
-                    let mut current_result: Rc<MalType> = MalType::list(vec![]);
+                    let mut current_result: Rc<MalType> = MalType::new_list(vec![]);
                     // The result is initially an empty list. Iterate over each element elt of ast in reverse order:
                     for elt in list.iter().rev() {
                         if Self::is_list_starting_with_symbol(elt.clone(), "splice-unquote") {
@@ -337,7 +337,7 @@ impl Repl {
 
                             let elt_list = elt.try_into_list()?;
 
-                            current_result = MalType::list(vec![
+                            current_result = MalType::new_list(vec![
                                 MalType::symbol("concat".to_string()),
                                 elt_list[1].clone(),
                                 current_result,
@@ -346,7 +346,7 @@ impl Repl {
                             // Else replace the current result with a list containing:
                             // the "cons" symbol, the result of calling quasiquote with elt as argument,
                             // then the previous result.
-                            current_result = MalType::list(vec![
+                            current_result = MalType::new_list(vec![
                                 MalType::symbol("cons".to_string()),
                                 Self::quasiquote(elt.clone(), env.clone())?,
                                 current_result,
@@ -359,13 +359,13 @@ impl Repl {
             }
             MalType::Vector(v) => {
                 if v.is_empty() {
-                    return Ok(MalType::list(vec![
+                    return Ok(MalType::new_list(vec![
                         MalType::symbol("vec".to_string()),
-                        MalType::list(vec![]),
+                        MalType::new_list(vec![]),
                     ]));
                 }
                 let mut result_list = vec![MalType::symbol("vec".to_string())];
-                let quasicote_result = Self::quasiquote(MalType::list(v.clone()), env.clone())?;
+                let quasicote_result = Self::quasiquote(MalType::new_list(v.clone()), env.clone())?;
 
                 let mut results: Vec<Rc<MalType>> = vec![];
                 quasicote_result
@@ -373,13 +373,13 @@ impl Repl {
                     .iter()
                     .for_each(|v| results.push(v.clone()));
 
-                result_list.push(MalType::list(results));
+                result_list.push(MalType::new_list(results));
 
-                return Ok(MalType::list(result_list));
+                return Ok(MalType::new_list(result_list));
             }
             MalType::Symbol(_) | MalType::Hashmap(_) => {
                 // If ast is a map or a symbol, return a list containing: the "quote" symbol, then ast.
-                return Ok(MalType::list(vec![
+                return Ok(MalType::new_list(vec![
                     MalType::symbol("quote".to_string()),
                     ast.clone(),
                 ]));
@@ -398,13 +398,13 @@ impl Repl {
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
         match ast.as_ref() {
             MalType::Symbol(name) => env.borrow().get(name.to_string()),
-            MalType::List(list) => {
+            MalType::List(list, _) => {
                 let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(list.len());
                 for value in list {
                     let new_value = Self::eval2(value.clone(), env.clone())?;
                     new_ast.push(new_value);
                 }
-                Ok(Rc::new(MalType::List(new_ast)))
+                Ok(MalType::new_list(new_ast))
             }
             MalType::Vector(vector) => {
                 let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
@@ -444,7 +444,7 @@ mod tests {
 
         let eval_result = Repl::eval2(ast, repl.env()).expect("Expected evaluation to succeed");
 
-        assert_matches!(eval_result.as_ref(), MalType::List(_l));
+        assert_matches!(eval_result.as_ref(), MalType::List(_, _));
     }
 
     #[test]

@@ -8,7 +8,7 @@ impl Display for MalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MalType::Nil => f.write_str("nil"),
-            MalType::List(l) => {
+            MalType::List(l, _) => {
                 let values: Vec<_> = l.iter().map(|v| format!("{}", v)).collect();
                 f.write_str(&format!("({})", values.join(" ")))
             }
@@ -62,7 +62,7 @@ impl Printer {
     pub fn pr_str(data: &MalType, print_readonly: bool) -> String {
         match data {
             MalType::Nil => String::from("nil"),
-            MalType::List(l) => Self::print_seperated(l, '(', ')', " ", print_readonly),
+            MalType::List(l, _) => Self::print_seperated(l, '(', ')', " ", print_readonly),
             MalType::Symbol(s) => s.to_string(),
             MalType::Number(n) => format!("{}", n),
             MalType::String(s) => Self::print_string(s, print_readonly),

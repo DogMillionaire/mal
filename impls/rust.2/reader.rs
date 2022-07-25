@@ -1,7 +1,6 @@
 use std::{char, rc::Rc};
 
 use crate::{malerror::MalError, types::MalType};
-use assert_matches::assert_matches;
 use indexmap::IndexMap;
 
 const DEBUG: bool = false;
@@ -300,7 +299,7 @@ impl Reader {
                 types.push(meta);
                 types.push(value);
 
-                Ok(Rc::new(MalType::List(types)))
+                Ok(MalType::new_list(types))
             }
             Token::Keyword(name) => {
                 let result = MalType::Keyword(name.to_string());
@@ -318,7 +317,7 @@ impl Reader {
         self.next();
         types.push(self.read_form()?);
 
-        Ok(Rc::new(MalType::List(types)))
+        Ok(MalType::new_list(types))
     }
 
     fn read_hashmap(&mut self) -> Result<Rc<MalType>, MalError> {
@@ -357,9 +356,9 @@ impl Reader {
     }
 
     fn read_list(&mut self) -> Result<Rc<MalType>, MalError> {
-        Ok(Rc::new(MalType::List(
+        Ok(MalType::new_list(
             self.read_token_list(&Token::OpenParen, &Token::CloseParen)?,
-        )))
+        ))
     }
 
     fn read_token_list(
@@ -418,7 +417,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result.as_ref(), &MalType::List(_));
+        assert_matches!(result.as_ref(), &MalType::List(_, _));
     }
 
     #[test]
@@ -427,10 +426,10 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result.as_ref(), MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l, _) => {
             assert_eq!(2, l.len());
-            assert_matches!(l[0].as_ref(), MalType::List(_));
-            assert_matches!(l[0].as_ref(), MalType::List(_));
+            assert_matches!(l[0].as_ref(), MalType::List(_, _));
+            assert_matches!(l[0].as_ref(), MalType::List(_, _));
         });
     }
 
@@ -487,7 +486,7 @@ mod tests {
 
         let result = reader.read_form().unwrap();
 
-        assert_matches!(result.as_ref(), MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l, _) => {
             assert_eq!(2, l.len());
             assert_matches!(l[0].as_ref(), &MalType::Symbol(_));
             assert_matches!(l[1].as_ref(), &MalType::Number(1));
@@ -500,7 +499,7 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result.as_ref(), MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l, _) => {
             assert_eq!(3, l.len(), "List should have 3 elements");
             assert_matches!(l[0].as_ref(), &MalType::Symbol(_));
             assert_matches!(l[1].as_ref(), &MalType::Symbol(_));
@@ -541,7 +540,7 @@ mod tests {
 
         let result = reader.read_form().expect("Failed to parse");
 
-        assert_matches!(result.as_ref(), MalType::List(l) => {
+        assert_matches!(result.as_ref(), MalType::List(l, _) => {
             assert_eq!(3, l.len(), "List should have 3 elements");
             assert_matches!(l[0].as_ref(), &MalType::Symbol(_), "First list element should be a symbol");
             assert_matches!(l[1].as_ref(), &MalType::Vector(_), "First list element should be a vector");

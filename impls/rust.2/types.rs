@@ -6,9 +6,11 @@ use indexmap::IndexMap;
 use crate::env::Env;
 use crate::malerror::MalError;
 
+pub type MalMeta = Option<Rc<MalType>>;
+
 pub enum MalType {
     Nil,
-    List(Vec<Rc<MalType>>),
+    List(Vec<Rc<MalType>>, MalMeta),
     Symbol(String),
     Number(isize),
     String(String),
@@ -125,7 +127,7 @@ impl MalType {
     pub fn type_name(&self) -> String {
         match self {
             MalType::Nil => String::from("MalType::Nil"),
-            MalType::List(_) => String::from("MalType::List"),
+            MalType::List(_, _) => String::from("MalType::List"),
             MalType::Symbol(_) => String::from("MalType::Symbol"),
             MalType::Number(_) => String::from("MalType::Number"),
             MalType::String(_) => String::from("MalType::String"),
@@ -141,7 +143,7 @@ impl MalType {
 
     pub fn try_into_list(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         match self {
-            Self::List(v) => Ok(v.clone()),
+            Self::List(v, _) => Ok(v.clone()),
             Self::Vector(v) => Ok(v.clone()),
             _ => Err(MalError::InvalidType(
                 String::from("MalType::List"),
@@ -205,7 +207,7 @@ impl MalType {
     pub fn get_as_vec(&self) -> Result<Vec<Rc<MalType>>, MalError> {
         return match self {
             MalType::Vector(v) => Ok(v.clone()),
-            MalType::List(l) => Ok(l.clone()),
+            MalType::List(l, _) => Ok(l.clone()),
             _ => Err(MalError::InvalidType(
                 "MalType::Vector or MalType::List".to_string(),
                 self.type_name(),
@@ -215,10 +217,10 @@ impl MalType {
 
     fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
         let (this_vec, other_vec) = match (this, other) {
-            (MalType::List(l1), MalType::List(l2)) => (l1, l2),
-            (MalType::List(l1), MalType::Vector(l2)) => (l1, l2),
+            (MalType::List(l1, _), MalType::List(l2, _)) => (l1, l2),
+            (MalType::List(l1, _), MalType::Vector(l2)) => (l1, l2),
             (MalType::Vector(l1), MalType::Vector(l2)) => (l1, l2),
-            (MalType::Vector(l1), MalType::List(l2)) => (l1, l2),
+            (MalType::Vector(l1), MalType::List(l2, _)) => (l1, l2),
             _ => unreachable!(),
         };
 
@@ -255,8 +257,8 @@ impl MalType {
         Rc::new(MalType::Number(number))
     }
 
-    pub fn list(values: Vec<Rc<MalType>>) -> Rc<MalType> {
-        Rc::new(MalType::List(values))
+    pub fn new_list(values: Vec<Rc<MalType>>) -> Rc<MalType> {
+        Rc::new(MalType::List(values, None))
     }
 
     pub fn symbol(symbol: String) -> Rc<MalType> {
@@ -408,6 +410,25 @@ impl MalType {
     pub fn is_number(&self) -> bool {
         matches!(self, Self::Number(..))
     }
+
+    pub fn get_meta(&self) -> Option<Rc<MalType>> {
+        match self {
+            MalType::List(_, meta) => meta.clone(),
+            _ => None,
+        }
+    }
+
+    pub fn set_meta(&self, meta: Rc<MalType>) -> Result<Rc<MalType>, MalError> {
+        match self {
+            MalType::List(list, _meta) => {
+                Ok(Rc::new(MalType::List(list.clone(), Some(meta.clone()))))
+            }
+            _ => Err(MalError::InvalidType(
+                "MalType::List".to_string(),
+                self.type_name(),
+            )),
+        }
+    }
 }
 
 impl Eq for MalType {
@@ -417,10 +438,10 @@ impl Eq for MalType {
 impl PartialEq for MalType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::List(_), Self::List(_))
-            | (Self::List(_), Self::Vector(_))
+            (Self::List(_, _), Self::List(_, _))
+            | (Self::List(_, _), Self::Vector(_))
             | (Self::Vector(_), Self::Vector(_))
-            | (Self::Vector(_), Self::List(_)) => MalType::compare_as_vec(self, other),
+            | (Self::Vector(_), Self::List(_, _)) => MalType::compare_as_vec(self, other),
             (Self::Symbol(l0), Self::Symbol(r0)) => l0 == r0,
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
@@ -435,7 +456,7 @@ impl std::fmt::Debug for MalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Nil => write!(f, "Nil"),
-            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
+            Self::List(arg0, _) => f.debug_tuple("List").field(arg0).finish(),
             Self::Symbol(arg0) => f.debug_tuple("Symbol").field(arg0).finish(),
             Self::Number(arg0) => f.debug_tuple("Number").field(arg0).finish(),
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
@@ -454,7 +475,7 @@ impl std::hash::Hash for MalType {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             MalType::Nil => core::mem::discriminant(self).hash(state),
-            MalType::List(l) => l.hash(state),
+            MalType::List(l, _) => l.hash(state),
             MalType::Symbol(s) => s.hash(state),
             MalType::Number(n) => n.hash(state),
             MalType::String(s) => s.hash(state),
@@ -483,7 +504,7 @@ mod tests {
     #[test]
     fn match_vector_list() {
         let elements = vec![Rc::new(MalType::Number(1)), Rc::new(MalType::Number(2))];
-        let list = MalType::List(elements.clone());
+        let list = MalType::List(elements.clone(), None);
         let vector = MalType::Vector(elements);
 
         assert_eq!(list, vector);
