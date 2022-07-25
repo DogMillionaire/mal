@@ -4,9 +4,10 @@ use indexmap::IndexMap;
 
 use crate::{
     env::{Env, MalEnv},
-    printer::{Printer},
-    reader::{Reader},
-    types::{self, MalFn, MalType}, malerror::MalError,
+    malerror::MalError,
+    printer::Printer,
+    reader::Reader,
+    types::{self, MalType},
 };
 
 #[allow(unused_must_use)]
@@ -49,7 +50,6 @@ impl Repl {
         Ok(Self::print(eval_result))
     }
 
-
     pub fn eval2(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
         // while true:
         let mut current_ast = ast;
@@ -65,7 +65,7 @@ impl Repl {
             //     if not list?(ast): return eval_ast(ast, env)
             let ast_list = match current_ast.try_into_list() {
                 Ok(list) => list,
-                Err(_) => return Self::eval_ast(current_ast, current_env.clone())
+                Err(_) => return Self::eval_ast(current_ast, current_env.clone()),
             };
 
             //     if empty?(ast): return ast
@@ -77,13 +77,15 @@ impl Repl {
                 //     'def!:        return env.set(ast[1], EVAL(ast[2], env))
                 MalType::Symbol(s) if s == "def!" => {
                     let val = Self::eval2(ast_list[2].clone(), current_env.clone())?;
-                    current_env.borrow_mut().set(ast_list[1].try_into_symbol().unwrap(), val.clone());
+                    current_env
+                        .borrow_mut()
+                        .set(ast_list[1].try_into_symbol().unwrap(), val.clone());
                     return Ok(val);
                 }
                 //     'let*:        env = ...; ast = ast[2] // TCO
                 MalType::Symbol(s) if s == "let*" => {
                     let new_env = Env::new_with_outer(None, None, current_env.clone());
-            
+
                     let bindings_list = ast_list[1].clone().try_into_list()?;
 
                     let bindings = bindings_list.chunks_exact(2);
@@ -118,7 +120,9 @@ impl Repl {
 
                     val.try_into_func()?.set_is_macro();
 
-                    current_env.borrow_mut().set(ast_list[1].try_into_symbol().unwrap(), val.clone());
+                    current_env
+                        .borrow_mut()
+                        .set(ast_list[1].try_into_symbol().unwrap(), val.clone());
                     return Ok(val);
                 }
                 //     'macroexpand: return macroexpand(ast[1], env)
@@ -127,7 +131,7 @@ impl Repl {
                 }
                 //     'try*:        return ... // try/catch native and malval exceptions
                 MalType::Symbol(s) if s == "try*" => {
-                    match Self::eval2(ast_list[1].clone(), current_env.clone()){
+                    match Self::eval2(ast_list[1].clone(), current_env.clone()) {
                         Ok(ast) => current_ast = ast,
                         Err(e) if e.is_exception() => {
                             if ast_list.len() < 3 {
@@ -139,23 +143,30 @@ impl Repl {
                             let exception_symbol = catch[1].try_into_symbol()?;
                             let catch_body = catch[2].clone();
 
-                            let catch_env = Env::new_with_outer(Some(vec![
-                                MalType::symbol(exception_symbol)
-                            ]), Some(vec![
-                                e.as_exception().expect("Expected MalError::Exception")
-                            ]), current_env.clone());
+                            let catch_env = Env::new_with_outer(
+                                Some(vec![MalType::symbol(exception_symbol)]),
+                                Some(vec![e
+                                    .as_exception()
+                                    .expect("Expected MalError::Exception")]),
+                                current_env.clone(),
+                            );
                             current_ast = Self::eval2(catch_body, catch_env.clone())?;
-                        },
-                        Err(e) => return Err(e) 
+                        }
+                        Err(e) => return Err(e),
                     }
-
-
-                },
+                }
                 //     'do:          ast = eval_ast(ast[1..-1], env)[-1] // TCO
                 MalType::Symbol(s) if s == "do" => {
-                    let args : Vec<_> = ast_list[1..ast_list.len()].iter().map(|v| v.clone()).collect();
+                    let args: Vec<_> = ast_list[1..ast_list.len()]
+                        .iter()
+                        .map(|v| v.clone())
+                        .collect();
                     let val = Self::eval_ast(MalType::list(args), current_env.clone())?;
-                    current_ast = val.try_into_list()?.last().unwrap_or(&Rc::new(MalType::Nil)).clone();
+                    current_ast = val
+                        .try_into_list()?
+                        .last()
+                        .unwrap_or(&Rc::new(MalType::Nil))
+                        .clone();
                 }
                 //     'if:          EVAL(ast[1], env) ? ast = ast[2] : ast = ast[3] // TCO
                 MalType::Symbol(s) if s == "if" => {
@@ -177,8 +188,18 @@ impl Repl {
                     let mal = types::MalFunc::new_with_closure(
                         None,
                         func_parameters.try_into_list()?,
-                        &|env, body: Rc<MalType>, params : Vec<Rc<MalType>>, param_values: Vec<Rc<MalType>>| {
-                            Self::eval2(body.clone(), Env::new_with_outer(Some(params.clone()), Some(param_values.clone()), env))
+                        &|env,
+                          body: Rc<MalType>,
+                          params: Vec<Rc<MalType>>,
+                          param_values: Vec<Rc<MalType>>| {
+                            Self::eval2(
+                                body.clone(),
+                                Env::new_with_outer(
+                                    Some(params.clone()),
+                                    Some(param_values.clone()),
+                                    env,
+                                ),
+                            )
                         },
                         current_env,
                         func_body,
@@ -188,7 +209,8 @@ impl Repl {
                 }
                 //     _default_:    f, args = eval_ast(ast, env)
                 _ => {
-                    let func_args = Self::eval_ast(current_ast.clone(), current_env.clone())?.try_into_list()?;
+                    let func_args = Self::eval_ast(current_ast.clone(), current_env.clone())?
+                        .try_into_list()?;
 
                     let f = func_args.first().unwrap().clone();
                     let args: Vec<_> = func_args.iter().skip(1).map(|v| v.clone()).collect();
@@ -206,304 +228,18 @@ impl Repl {
                             );
                         }
 
-                        current_env = Env::new_with_outer(Some(func.parameters().clone()), Some(args), current_env.clone());
+                        current_env = Env::new_with_outer(
+                            Some(func.parameters().clone()),
+                            Some(args),
+                            current_env.clone(),
+                        );
                         current_ast = func.body_ast();
                     } else {
                         return f.try_into_func()?.apply(args);
                         //                     else:           return apply(f, args)
                         //return Self::apply(f.clone(), args);
                     }
-
                 }
-            }
-
-        }
-
-
-    }
-
-    fn _eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
-        // println!("eval={}", printer::Printer::pr_str(ast.as_ref(), true));
-        let mut current_ast = ast.clone();
-        let mut current_env = env.clone();
-        loop {
-            if !current_ast.is_list() {
-                return Self::eval_ast(current_ast.clone(), current_env.clone());
-            }
-            current_ast = Self::macroexpand(current_ast.clone(), current_env.clone())?;
-
-            if !current_ast.is_list() {
-                return Self::eval_ast(current_ast.clone(), current_env.clone());
-            }
-
-            let ast_list = current_ast.try_into_list().expect("AST should be a list");
-            if ast_list.is_empty() {
-                return Ok(current_ast);
-            }
-
-            match current_ast.clone().as_ref() {
-                MalType::List(l) => {
-                    if l.is_empty() {
-                        return Ok(current_ast);
-                    } else {
-                        match current_ast.clone().as_ref() {
-                            MalType::List(l) if l.len() > 0 => match l[0].clone().as_ref() {
-                                MalType::Symbol(s) if s == "def!" => {
-                                    let value = Self::eval2(l[2].clone(), current_env.clone())?;
-                                    current_env
-                                        .as_ref()
-                                        .borrow_mut()
-                                        .set(l[1].clone().try_into_symbol()?, value.clone());
-                                    return Ok(value);
-                                }
-                                MalType::Symbol(s) if s == "defmacro!" => {
-                                    let value = Self::eval2(l[2].clone(), current_env.clone())?;
-            
-                                    value.clone().as_func().unwrap().set_is_macro();
-            
-                                    current_env
-                                        .as_ref()
-                                        .borrow_mut()
-                                        .set(l[1].clone().try_into_symbol()?, value.clone());
-                                    return Ok(value);
-                                }
-                                MalType::Symbol(s) if s == "let*" => {
-                                    let new_env = Env::new_with_outer(None, None, current_env.clone());
-            
-                                    let bindings_list = l[1].clone().try_into_list()?;
-            
-                                    let bindings = bindings_list.chunks_exact(2);
-            
-                                    for binding in bindings {
-                                        let key = binding[0].clone();
-                                        let value = Self::eval2(binding[1].clone(), new_env.clone())?;
-            
-                                        {
-                                            let mut mut_env = new_env.as_ref().borrow_mut();
-                                            mut_env.set(key.to_string(), value.clone());
-                                        }
-                                    }
-            
-                                    current_ast = l[2].clone();
-                                    current_env = new_env;
-                                }
-                                MalType::Symbol(s) if s == "if" => {
-                                    let condition = l[1].clone();
-            
-                                    let c_value = Self::eval2(condition, current_env.clone())?;
-            
-                                    match c_value.as_ref() {
-                                        MalType::Nil | MalType::False => {
-                                            if l.len() < 4 {
-                                                return Ok(Rc::new(MalType::Nil));
-                                            }
-                                            let false_value = l[3].clone();
-                                            current_ast = false_value;
-                                        }
-                                        _ => {
-                                            let true_value = l[2].clone();
-                                            current_ast = true_value;
-                                        }
-                                    }
-                                }
-                                MalType::Symbol(s) if s == "fn*" => {
-                                    let func_parameters = l[1].clone();
-                                    let func_body = l[2].clone();
-            
-                                    let mal = types::MalFunc::new(
-                                        None,
-                                        func_parameters.try_into_list()?,
-                                        current_env,
-                                        func_body,
-                                    );
-            
-                                    return Ok(Rc::new(MalType::Func(mal)));
-                                }
-                                MalType::Symbol(s) if s == "do" => {
-                                    for i in 1..l.len() - 1 {
-                                        Self::eval2(l[i].clone(), current_env.clone())?;
-                                    }
-                                    current_ast = l.last().expect("Expected non empty list for 'do'").clone();
-                                }
-                                MalType::Symbol(s) if s == "eval" => {
-                                    let symbol_to_eval = l[1].clone();
-                                    let params = vec![Rc::new(MalType::Symbol("input".to_string()))];
-            
-                                    let body: &MalFn =
-                                        &|env: Rc<RefCell<Env>>,
-                                          _body: Rc<MalType>,
-                                          _params: Vec<Rc<MalType>>,
-                                          param_values: Vec<Rc<MalType>>| {
-                                            let input = param_values[0].clone();
-            
-                                            let a = Self::eval2(input, env.clone())?;
-                                            let root_env = env.borrow().get_root().unwrap();
-                                            Self::eval2(a, root_env)
-                                        };
-            
-                                    let mal = types::MalFunc::new_with_closure(
-                                        Some("eval-closure".to_string()),
-                                        params,
-                                        body,
-                                        current_env.clone(),
-                                        Rc::new(MalType::Nil),
-                                    );
-            
-                                    current_ast =
-                                        MalType::list(vec![Rc::new(MalType::Func(mal)), symbol_to_eval]);
-                                }
-                                MalType::Symbol(s) if s == "swap!" => {
-                                    let atom_symbol = l[1].clone().try_into_symbol()?;
-                                    let atom_type = current_env.borrow().get(atom_symbol)?;
-                                    let atom = atom_type.try_into_atom()?;
-                                    let func = l[2].clone();
-            
-                                    let atom_value = atom.borrow().clone();
-            
-                                    let mut func_ast = vec![func, atom_value];
-                                    l[3..].iter().for_each(|f| func_ast.push(f.clone()));
-            
-                                    let new_value = Self::eval2(MalType::list(func_ast), current_env.clone())?;
-                                    atom.replace(new_value.clone());
-            
-                                    return Ok(new_value);
-                                }
-                                MalType::Symbol(s) if s == "quote" => {
-                                    return Ok(l[1].clone());
-                                }
-                                MalType::Symbol(s) if s == "quasiquote" => {
-                                    current_ast = Self::quasiquote(l[1].clone(), current_env.clone())?;
-                                }
-                                MalType::Symbol(s) if s == "quasiquoteexpand" => {
-                                    return Self::quasiquote(l[1].clone(), current_env.clone());
-                                }
-                                MalType::Symbol(s) if s == "macroexpand" => {
-                                    return Self::macroexpand(l[1].clone(), current_env.clone());
-                                }
-                                MalType::Symbol(s) if s == "try*" => {
-                                    let body = l[1].clone();
-
-                                    match Self::eval2(body, env.clone()){
-                                        Ok(ast) => current_ast = ast,
-                                        Err(e) if e.is_exception() => {
-                                            if l.len() < 3 {
-                                                // No catch block
-                                                return Err(e);
-                                            }
-
-                                            let catch = l[2].clone().try_into_list()?;
-
-                                            let _catch_symbol = catch[0].try_into_symbol()?;
-                                            let exception_symbol = catch[1].try_into_symbol()?;
-                                            let catch_body = catch[2].clone();
-
-                                            let catch_bindings = vec![
-                                                MalType::symbol(exception_symbol)
-                                            ];
-                                            let catch_expressions = vec![
-                                                e.as_exception().expect("Expected MalError::Exception")
-                                            ];
-
-                                            let catch_env = Env::new_with_outer(Some(catch_bindings), Some(catch_expressions), env.clone());
-                                            current_ast = Self::eval2(catch_body, catch_env)?;
-                                        },
-                                        Err(e) => return Err(e) 
-                                    }
-                                }
-                                MalType::Symbol(s) if s == "apply" => {
-                                    if l.len() < 2 {
-                                        return Err(MalError::ParseError(
-                                            "Apply needs at least 2 arguments".to_string(),
-                                        ));
-                                    }
-
-                                    let func = Self::eval2(l[1].clone(), current_env.clone())?;
-                                    let mut func_ast: Vec<Rc<MalType>> = vec![func];
-
-                                    for arg in l[2..l.len()-1].iter() {
-                                        func_ast.push(
-                                            Self::eval2(arg.clone(), env.clone())?);
-                                    }
-
-                                    let arg_vec = Self::eval2(l[l.len()-1].clone(), current_env.clone())?.get_as_vec()?;
-                                    
-                                    for arg in arg_vec {
-                                        func_ast.push(Self::eval2(arg, current_env.clone())?);
-                                    }
-
-                                    current_ast = MalType::list(func_ast);
-                                }
-                                MalType::Symbol(s) if s == "map" => {
-                                    if l.len() < 2 {
-                                        return Err(MalError::ParseError(
-                                            "Map needs at least 2 arguments".to_string(),
-                                        ));
-                                    }
-
-                                    let func = l[1].clone();
-
-
-                                    let mut args = l[2].clone();
-                                    if let Ok(symbol) = args.try_into_symbol() {
-                                        args = current_env.borrow().get(symbol)?;
-                                    }
-
-                                    let values = Self::eval2(args, current_env.clone())?;
-
-                                    let args_vec = values.get_as_vec()?;
-
-                                    let mut results: Vec<Rc<MalType>> = vec![];
-                                    for arg in args_vec {
-                                        // println!("==> MAP: {}=>{}", &func, &arg);
-                                        let func_ast = MalType::list(vec![
-                                            func.clone(),
-                                            arg
-                                        ]);
-                                        let mapped_val = Self::eval2(func_ast, current_env.clone())?;
-                                        // println!("<== MAP: {}", &mapped_val);
-                                        results.push(mapped_val);
-                                    }
-
-                                    current_ast = MalType::list(results);
-                                }
-                                MalType::Func(func) => {
-                                    let args = l[1..l.len()].to_vec();
-            
-                                    // Built-in func
-                                    if let Some(f) = func.body() {
-                                        return f(
-                                            func.env(),
-                                            func.body_ast(),
-                                            func.parameters().to_vec(),
-                                            args,
-                                        );
-                                    }
-            
-                                    let exec_env = Env::new_with_outer(
-                                        Some(func.parameters().to_vec()),
-                                        Some(args),
-                                        func.env(),
-                                    );
-            
-                                    // def!/defmacro! function
-                                    current_ast = func.body_ast();
-                                    current_env = exec_env;
-                                }
-                                MalType::Number(_) | MalType::String(_) | MalType::True | MalType::False => {
-                                    // A list of some data type
-                                    return Ok(current_ast);
-                                }
-                                _ => {
-                                    current_ast = Self::eval_ast(current_ast, current_env.clone())?;
-                                }
-                            },
-                            _ => {
-                                return Self::eval2(current_ast, current_env);
-                            }
-                        }
-                    }
-                }
-                _ => return Self::eval_ast(current_ast, current_env),
             }
         }
     }
@@ -678,7 +414,7 @@ impl Repl {
             }
             MalType::Hashmap(hashmap) => {
                 let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =
-                IndexMap::with_capacity(hashmap.len());
+                    IndexMap::with_capacity(hashmap.len());
 
                 for (key, value) in hashmap {
                     let new_value = Self::eval2(value.clone(), env.clone())?;

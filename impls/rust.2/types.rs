@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use indexmap::IndexMap;
 
-use crate::env::{Env, MalEnv};
+use crate::env::Env;
 use crate::malerror::MalError;
 
 pub enum MalType {
@@ -55,22 +55,6 @@ pub type MalFn = dyn Fn(
 ) -> Result<Rc<MalType>, MalError>;
 
 impl MalFunc {
-    pub fn new(
-        name: Option<String>,
-        parameters: Vec<Rc<MalType>>,
-        env: Rc<RefCell<Env>>,
-        body_ast: Rc<MalType>,
-    ) -> Self {
-        let name = name.unwrap_or(String::from("anonymous"));
-        Self {
-            name,
-            parameters,
-            body: None,
-            env,
-            body_ast,
-            is_macro: RefCell::new(false),
-        }
-    }
     pub fn new_with_closure(
         name: Option<String>,
         parameters: Vec<Rc<MalType>>,

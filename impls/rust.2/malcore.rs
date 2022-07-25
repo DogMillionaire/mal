@@ -143,7 +143,7 @@ impl MalCore {
             let new_value = Repl::eval2(MalType::list(func_ast), env.clone())?;
             atom_value.replace(new_value.clone());
 
-            return Ok(new_value);
+            Ok(new_value)
         });
         Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
@@ -228,7 +228,7 @@ impl MalCore {
             Err(MalError::Exception(value))
         });
 
-        Self::add_binary_func_with_env(env.clone(), "map", &|func, values, env| {
+        Self::add_binary_func(env.clone(), "map", &|func, values| {
             let values_to_map = values.get_as_vec()?;
             let mut results = Vec::with_capacity(values_to_map.len());
 
@@ -240,7 +240,7 @@ impl MalCore {
 
             return Ok(MalType::list(results));
         });
-        Self::add_param_list_func_with_env(env.clone(), "apply", &|params, env| {
+        Self::add_param_list_func(env.clone(), "apply", &|params| {
             let func = params[0].clone();
             let mut args = vec![];
             params[1..params.len() - 1]
