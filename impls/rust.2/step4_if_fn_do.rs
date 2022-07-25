@@ -1,11 +1,10 @@
 mod env;
 mod malcore;
+mod malerror;
 mod printer;
 mod reader;
 mod repl;
 mod types;
-
-use reader::MalError;
 
 use crate::repl::Repl;
 use crate::types::MalType;

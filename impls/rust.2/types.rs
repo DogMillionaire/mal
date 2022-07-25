@@ -1,8 +1,10 @@
 use std::hash::Hash;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
+
+use indexmap::IndexMap;
 
 use crate::env::Env;
-use crate::reader::MalError;
+use crate::malerror::MalError;
 
 pub enum MalType {
     Nil,
@@ -12,7 +14,7 @@ pub enum MalType {
     String(String),
     Vector(Vec<Rc<MalType>>),
     Keyword(String),
-    Hashmap(HashMap<Rc<MalType>, Rc<MalType>>),
+    Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>),
     Func(MalFunc),
     True,
     False,
@@ -53,22 +55,6 @@ pub type MalFn = dyn Fn(
 ) -> Result<Rc<MalType>, MalError>;
 
 impl MalFunc {
-    pub fn new(
-        name: Option<String>,
-        parameters: Vec<Rc<MalType>>,
-        env: Rc<RefCell<Env>>,
-        body_ast: Rc<MalType>,
-    ) -> Self {
-        let name = name.unwrap_or(String::from("anonymous"));
-        Self {
-            name,
-            parameters,
-            body: None,
-            env,
-            body_ast,
-            is_macro: RefCell::new(false),
-        }
-    }
     pub fn new_with_closure(
         name: Option<String>,
         parameters: Vec<Rc<MalType>>,
@@ -100,8 +86,8 @@ impl MalFunc {
         self.name.clone()
     }
 
-    pub fn parameters(&self) -> &[Rc<MalType>] {
-        self.parameters.as_ref()
+    pub fn parameters(&self) -> Vec<Rc<MalType>> {
+        self.parameters.clone()
     }
 
     pub fn env(&self) -> Rc<RefCell<Env>> {
@@ -122,6 +108,15 @@ impl MalFunc {
 
     pub fn set_is_macro(&self) {
         self.is_macro.replace(true);
+    }
+
+    pub fn apply(&self, args: Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError> {
+        self.body.as_ref().expect("Body must be set")(
+            self.env.clone(),
+            self.body_ast.clone(),
+            self.parameters.clone(),
+            args,
+        )
     }
 }
 
@@ -268,7 +263,7 @@ impl MalType {
         Rc::new(MalType::Symbol(symbol))
     }
 
-    pub fn string(string: String) -> Rc<MalType> {
+    pub fn new_string(string: String) -> Rc<MalType> {
         Rc::new(MalType::String(string))
     }
 
@@ -321,6 +316,90 @@ impl MalType {
     pub fn is_symbol(&self) -> bool {
         matches!(self, Self::Symbol(..))
     }
+
+    /// Returns `true` if the mal type is [`Nil`].
+    ///
+    /// [`Nil`]: MalType::Nil
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
+
+    /// Returns `true` if the mal type is [`True`].
+    ///
+    /// [`True`]: MalType::True
+    #[must_use]
+    pub fn is_true(&self) -> bool {
+        matches!(self, Self::True)
+    }
+
+    /// Returns `true` if the mal type is [`False`].
+    ///
+    /// [`False`]: MalType::False
+    #[must_use]
+    pub fn is_false(&self) -> bool {
+        matches!(self, Self::False)
+    }
+
+    /// Returns `true` if the mal type is [`Keyword`].
+    ///
+    /// [`Keyword`]: MalType::Keyword
+    #[must_use]
+    pub fn is_keyword(&self) -> bool {
+        matches!(self, Self::Keyword(..))
+    }
+
+    /// Returns `true` if the mal type is [`Vector`].
+    ///
+    /// [`Vector`]: MalType::Vector
+    #[must_use]
+    pub fn is_vector(&self) -> bool {
+        matches!(self, Self::Vector(..))
+    }
+
+    /// Returns `true` if the mal type is [`Hashmap`].
+    ///
+    /// [`Hashmap`]: MalType::Hashmap
+    #[must_use]
+    pub fn is_hashmap(&self) -> bool {
+        matches!(self, Self::Hashmap(..))
+    }
+
+    pub fn try_into_hashmap(&self) -> Result<IndexMap<Rc<MalType>, Rc<MalType>>, MalError> {
+        if let Self::Hashmap(v) = self {
+            Ok(v.clone())
+        } else {
+            Err(MalError::InvalidType(
+                String::from("MalType::Hashmap"),
+                self.type_name(),
+            ))
+        }
+    }
+
+    fn compare_hashmap(
+        lhs: &IndexMap<Rc<MalType>, Rc<MalType>>,
+        rhs: &IndexMap<Rc<MalType>, Rc<MalType>>,
+    ) -> bool {
+        if lhs.len() != rhs.len() {
+            return false;
+        }
+
+        for key in lhs.keys() {
+            let lvalue = lhs.get(key);
+            let rvalue = rhs.get(key);
+
+            match (lvalue, rvalue) {
+                (Some(left), Some(right)) => {
+                    if left != right {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        return true;
+    }
 }
 
 impl Eq for MalType {
@@ -338,7 +417,7 @@ impl PartialEq for MalType {
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
-            (Self::Hashmap(l0), Self::Hashmap(r0)) => l0.len() == r0.len(),
+            (Self::Hashmap(l0), Self::Hashmap(r0)) => Self::compare_hashmap(l0, r0),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }

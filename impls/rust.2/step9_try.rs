@@ -28,6 +28,8 @@ fn main() {
     )
     .expect("Fail to parse def! load-file");
 
+    repl.rep(r#"(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (rest (rest xs)))))))"#.to_string()).expect("Failed to parse defmacro! cond");
+
     let mut arg_list: Vec<Rc<MalType>> = vec![];
     if args.len() >= 2 {
         arg_list = args[2..]
@@ -40,10 +42,10 @@ fn main() {
         .borrow_mut()
         .set(String::from("*ARGV*"), MalType::list(arg_list));
 
-    if let Some(file) = args.get(1) {
+    if let Some(file) = args.iter().nth(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
-            Err(err) => eprintln!("ERROR: {}", err),
+            Err(err) => eprintln!("{}", err),
         }
         return;
     }
@@ -57,7 +59,7 @@ fn main() {
                     println!("{}", result);
                     rl.add_history_entry(input);
                 }
-                Err(err) => eprintln!("ERROR: {}", err),
+                Err(err) => eprintln!("{}", err),
             },
             Err(_) => break,
         }

@@ -2,7 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{MalError, MalType};
+use crate::malerror::MalError;
+use crate::MalType;
 
 #[allow(dead_code)]
 pub struct Env {
@@ -99,7 +100,10 @@ impl Env {
                 if let Some(outer) = &self.outer {
                     return outer.borrow().get(key.to_string());
                 }
-                Err(MalError::SymbolNotFound(key))
+                Err(MalError::Exception(MalType::new_string(format!(
+                    "'{}' not found",
+                    key
+                ))))
             }
         }
     }

@@ -1,5 +1,6 @@
 mod env;
 mod malcore;
+mod malerror;
 mod printer;
 mod reader;
 mod repl;
@@ -9,8 +10,8 @@ use std::cell::RefCell;
 
 use std::rc::Rc;
 
+use crate::malerror::MalError;
 use env::Env;
-use reader::MalError;
 
 use crate::repl::Repl;
 use crate::types::MalType;

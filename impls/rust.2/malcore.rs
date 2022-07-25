@@ -1,10 +1,13 @@
 use std::fs::File;
-use std::io::Read;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
-use crate::env::Env;
+use indexmap::IndexMap;
+
+use crate::env::{Env, MalEnv};
+use crate::malerror::MalError;
 use crate::printer::Printer;
-use crate::reader::{MalError, Reader};
+use crate::reader::Reader;
+use crate::repl::Repl;
 use crate::types::{MalFunc, MalType};
 
 #[allow(dead_code)]
@@ -99,6 +102,9 @@ impl MalCore {
                 Ok(Rc::new(MalType::False))
             }
         });
+
+        Self::add_unary_func_with_env(env.clone(), "eval", &|ast, env| Repl::eval2(ast, env));
+
         Self::add_unary_func(env.clone(), "read-string", &|str| {
             let input = str.try_into_string()?;
             Reader::read_str(input)?.read_form()
@@ -111,7 +117,7 @@ impl MalCore {
             file.read_to_string(&mut content)
                 .map_err(|e| MalError::InternalError(format!("{}", e)))?;
 
-            Ok(MalType::string(content))
+            Ok(MalType::new_string(content))
         });
 
         Self::add_unary_func(env.clone(), "atom", &|atom| {
@@ -123,6 +129,21 @@ impl MalCore {
         Self::add_unary_func(env.clone(), "deref", &|atom| {
             let value = atom.try_into_atom()?;
             Ok(value.borrow().clone())
+        });
+        Self::add_param_list_func_with_env(env.clone(), "swap!", &|params, env| {
+            let atom = params[0].clone();
+            let atom_value = atom.try_into_atom()?;
+            let func = params[1].clone();
+
+            let mut func_ast = vec![func, atom_value.borrow().clone()];
+            params[2..params.len()]
+                .iter()
+                .for_each(|p| func_ast.push(p.clone()));
+
+            let new_value = Repl::eval2(MalType::list(func_ast), env.clone())?;
+            atom_value.replace(new_value.clone());
+
+            Ok(new_value)
         });
         Self::add_binary_func(env.clone(), "reset!", &|val1, val2| {
             let atom = val1.try_into_atom()?;
@@ -169,11 +190,10 @@ impl MalCore {
                 return Ok(list[index].clone());
             }
 
-            Err(MalError::InternalError("invalid index".to_string()))
-            // return Ok(MalType::list(vec![
-            //     MalType::symbol("throw".to_string()),
-            //     MalType::string("invalid index".to_string()),
-            // ]));
+            Err(MalError::Exception(MalType::new_string(format!(
+                "Index {} out of range",
+                index
+            ))))
         });
 
         Self::add_unary_func(env.clone(), "first", &|a| match a.as_ref() {
@@ -204,6 +224,157 @@ impl MalCore {
             )),
         });
 
+        Self::add_unary_func(env.clone(), "throw", &|value| {
+            Err(MalError::Exception(value))
+        });
+
+        Self::add_binary_func(env.clone(), "map", &|func, values| {
+            let values_to_map = values.get_as_vec()?;
+            let mut results = Vec::with_capacity(values_to_map.len());
+
+            let func_to_apply = func.try_into_func()?;
+
+            for value in values_to_map {
+                results.push(func_to_apply.apply(vec![value.clone()])?);
+            }
+
+            return Ok(MalType::list(results));
+        });
+        Self::add_param_list_func(env.clone(), "apply", &|params| {
+            let func = params[0].clone();
+            let mut args = vec![];
+            params[1..params.len() - 1]
+                .iter()
+                .for_each(|v| args.push(v.clone()));
+            params
+                .last()
+                .unwrap()
+                .get_as_vec()?
+                .iter()
+                .for_each(|v| args.push(v.clone()));
+
+            func.try_into_func()?.apply(args)
+
+            //Repl::eval2(MalType::list(args), env.clone())
+        });
+
+        Self::add_unary_func(env.clone(), "nil?", &|a| Ok(MalType::bool(a.is_nil())));
+        Self::add_unary_func(env.clone(), "true?", &|a| Ok(MalType::bool(a.is_true())));
+        Self::add_unary_func(env.clone(), "false?", &|a| Ok(MalType::bool(a.is_false())));
+        Self::add_unary_func(env.clone(), "symbol?", &|a| {
+            Ok(MalType::bool(a.is_symbol()))
+        });
+
+        Self::add_unary_func(env.clone(), "symbol", &|a| {
+            Ok(MalType::symbol(a.try_into_string()?))
+        });
+        Self::add_unary_func(env.clone(), "keyword", &|a| match a.is_keyword() {
+            true => Ok(a),
+            false => Ok(Rc::new(MalType::Keyword(a.try_into_string()?))),
+        });
+        Self::add_unary_func(env.clone(), "keyword?", &|a| {
+            Ok(MalType::bool(a.is_keyword()))
+        });
+
+        Self::add_param_list_func(env.clone(), "vector", &|vals| {
+            Ok(Rc::new(MalType::Vector(vals)))
+        });
+        Self::add_unary_func(env.clone(), "vector?", &|a| {
+            Ok(MalType::bool(a.is_vector()))
+        });
+
+        Self::add_unary_func(env.clone(), "sequential?", &|a| match a.get_as_vec() {
+            Ok(_) => Ok(MalType::bool(true)),
+            Err(_) => Ok(MalType::bool(false)),
+        });
+
+        Self::add_unary_func(env.clone(), "map?", &|a| Ok(MalType::bool(a.is_hashmap())));
+
+        Self::add_param_list_func(env.clone(), "hash-map", &|vals| {
+            if vals.len() % 2 != 0 {
+                return Err(MalError::ParseError(
+                    "hash-map must be provided an even number of args".to_string(),
+                ));
+            }
+
+            let mut map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
+            for pairs in vals.chunks_exact(2) {
+                map.insert(pairs[0].clone(), pairs[1].clone());
+            }
+
+            Ok(Rc::new(MalType::Hashmap(map)))
+        });
+
+        Self::add_param_list_func(env.clone(), "assoc", &|vals| {
+            let map = vals[0].try_into_hashmap()?;
+
+            let remaining_args: Vec<_> = vals[1..].iter().collect();
+            if remaining_args.len() % 2 != 0 {
+                return Err(MalError::ParseError(
+                    "apply must be provided an even number of args".to_string(),
+                ));
+            }
+
+            let mut new_map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
+            for (k, v) in map {
+                new_map.insert(k, v);
+            }
+
+            for pairs in remaining_args.chunks_exact(2) {
+                new_map.insert(pairs[0].clone(), pairs[1].clone());
+            }
+
+            return Ok(Rc::new(MalType::Hashmap(new_map)));
+        });
+
+        Self::add_param_list_func(env.clone(), "dissoc", &|vals| {
+            let map = vals[0].try_into_hashmap()?;
+
+            let mut new_map: IndexMap<Rc<MalType>, Rc<MalType>> = IndexMap::new();
+            for (k, v) in map {
+                new_map.insert(k, v);
+            }
+
+            for key in vals[1..].iter() {
+                new_map.remove(key);
+            }
+
+            return Ok(Rc::new(MalType::Hashmap(new_map)));
+        });
+
+        Self::add_binary_func(env.clone(), "get", &|map, key| {
+            if map.is_nil() {
+                return Ok(Rc::new(MalType::Nil));
+            }
+            let m = map.try_into_hashmap()?;
+
+            match m.get(&key) {
+                Some(v) => Ok(v.clone()),
+                None => Ok(Rc::new(MalType::Nil)),
+            }
+        });
+
+        Self::add_binary_func(env.clone(), "contains?", &|map, key| {
+            let m = map.try_into_hashmap()?;
+
+            Ok(MalType::bool(m.contains_key(&key)))
+        });
+
+        Self::add_unary_func(env.clone(), "keys", &|a| {
+            let map = a.try_into_hashmap()?;
+
+            let keys: Vec<_> = map.keys().map(|v| v.clone()).collect();
+
+            Ok(MalType::list(keys))
+        });
+        Self::add_unary_func(env.clone(), "vals", &|a| {
+            let map = a.try_into_hashmap()?;
+
+            let values: Vec<_> = map.values().map(|v| v.clone()).collect();
+
+            Ok(MalType::list(values))
+        });
+
         instance
     }
 
@@ -231,6 +402,28 @@ impl MalCore {
         }
     }
 
+    fn add_param_list_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Vec<Rc<MalType>>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    _params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> { func(param_values, env) };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            vec![],
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
     fn add_param_list_func(
         env: Rc<RefCell<Env>>,
         name: &str,
@@ -245,6 +438,38 @@ impl MalCore {
         let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),
             vec![],
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
+    fn add_binary_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Rc<MalType>, Rc<MalType>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let params = vec![
+            Rc::new(MalType::Symbol("lhs".to_string())),
+            Rc::new(MalType::Symbol("rhs".to_string())),
+        ];
+
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> {
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env.clone());
+            let lhs = func_env.borrow().get("lhs".to_string())?;
+            let rhs = func_env.borrow().get("rhs".to_string())?;
+            func(lhs, rhs, env)
+        };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
             body,
             env.clone(),
             Rc::new(MalType::Nil),
@@ -272,6 +497,34 @@ impl MalCore {
             let lhs = func_env.borrow().get("lhs".to_string())?;
             let rhs = func_env.borrow().get("rhs".to_string())?;
             func(lhs, rhs)
+        };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
+    fn add_unary_func_with_env(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn(Rc<MalType>, MalEnv) -> Result<Rc<MalType>, MalError>,
+    ) {
+        let params = vec![Rc::new(MalType::Symbol("a".to_string()))];
+
+        let body = |env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    params: Vec<Rc<MalType>>,
+                    param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> {
+            let func_env = Env::new_with_outer(Some(params), Some(param_values), env.clone());
+            let a = func_env.borrow().get("a".to_string())?;
+            func(a, env)
         };
 
         let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(

@@ -1,13 +1,12 @@
 mod env;
 mod malcore;
+mod malerror;
 mod printer;
 mod reader;
 mod repl;
 mod types;
 
 use std::rc::Rc;
-
-use reader::MalError;
 
 use crate::repl::Repl;
 use crate::types::MalType;
@@ -33,7 +32,7 @@ fn main() {
     if args.len() >= 2 {
         arg_list = args[2..]
             .iter()
-            .map(|a| MalType::string(a.to_string()))
+            .map(|a| MalType::new_string(a.to_string()))
             .collect();
     }
 
@@ -41,7 +40,7 @@ fn main() {
         .borrow_mut()
         .set(String::from("*ARGV*"), MalType::list(arg_list));
 
-    if let Some(file) = args.iter().nth(1) {
+    if let Some(file) = args.get(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
             Err(err) => eprintln!("ERROR: {}", err),
