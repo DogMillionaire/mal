@@ -8,6 +8,8 @@ use crate::malerror::MalError;
 
 pub type MalMeta = Option<Rc<MalType>>;
 
+pub type MalVal = Rc<MalType>;
+
 pub enum MalType {
     Nil,
     List(Vec<Rc<MalType>>, MalMeta),
@@ -16,7 +18,7 @@ pub enum MalType {
     String(String),
     Vector(Vec<Rc<MalType>>, MalMeta),
     Keyword(String),
-    Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>),
+    Hashmap(IndexMap<Rc<MalType>, Rc<MalType>>, MalMeta),
     Func(MalFunc),
     True,
     False,
@@ -133,7 +135,7 @@ impl MalType {
             MalType::String(_) => String::from("MalType::String"),
             MalType::Vector(_, _) => String::from("MalType::Vector"),
             MalType::Keyword(_) => String::from("MalType::Keyword"),
-            MalType::Hashmap(_) => String::from("MalType::Hashmap"),
+            MalType::Hashmap(_, _) => String::from("MalType::Hashmap"),
             MalType::Func(_) => String::from("MalType::Func"),
             MalType::True => String::from("MalType::True"),
             MalType::False => String::from("MalType::False"),
@@ -368,7 +370,7 @@ impl MalType {
     }
 
     pub fn try_into_hashmap(&self) -> Result<IndexMap<Rc<MalType>, Rc<MalType>>, MalError> {
-        if let Self::Hashmap(v) = self {
+        if let Self::Hashmap(v, _) = self {
             Ok(v.clone())
         } else {
             Err(MalError::InvalidType(
@@ -435,6 +437,10 @@ impl MalType {
     pub fn new_vector(values: Vec<Rc<MalType>>) -> Rc<MalType> {
         Rc::new(MalType::Vector(values.clone(), None))
     }
+
+    pub fn new_hashmap(map: IndexMap<MalVal, MalVal>) -> MalVal {
+        Rc::new(MalType::Hashmap(map.clone(), None))
+    }
 }
 
 impl Eq for MalType {
@@ -452,7 +458,7 @@ impl PartialEq for MalType {
             (Self::Number(l0), Self::Number(r0)) => l0 == r0,
             (Self::String(l0), Self::String(r0)) => l0 == r0,
             (Self::Keyword(l0), Self::Keyword(r0)) => l0 == r0,
-            (Self::Hashmap(l0), Self::Hashmap(r0)) => Self::compare_hashmap(l0, r0),
+            (Self::Hashmap(l0, _), Self::Hashmap(r0, _)) => Self::compare_hashmap(l0, r0),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -468,7 +474,7 @@ impl std::fmt::Debug for MalType {
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
             Self::Vector(arg0, _) => f.debug_tuple("Vector").field(arg0).finish(),
             Self::Keyword(arg0) => f.debug_tuple("Keyword").field(arg0).finish(),
-            Self::Hashmap(arg0) => f.debug_tuple("Hashmap").field(arg0).finish(),
+            Self::Hashmap(arg0, _) => f.debug_tuple("Hashmap").field(arg0).finish(),
             Self::Func(arg0) => f.debug_tuple("Func").field(arg0).finish(),
             Self::True => write!(f, "True"),
             Self::False => write!(f, "False"),
@@ -487,7 +493,7 @@ impl std::hash::Hash for MalType {
             MalType::String(s) => s.hash(state),
             MalType::Vector(v, _) => v.hash(state),
             MalType::Keyword(k) => k.hash(state),
-            MalType::Hashmap(h) => {
+            MalType::Hashmap(h, _) => {
                 for entry in h {
                     entry.0.hash(state);
                     entry.1.hash(state);

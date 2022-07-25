@@ -377,7 +377,7 @@ impl Repl {
 
                 return Ok(MalType::new_list(result_list));
             }
-            MalType::Symbol(_) | MalType::Hashmap(_) => {
+            MalType::Symbol(_) | MalType::Hashmap(_, _) => {
                 // If ast is a map or a symbol, return a list containing: the "quote" symbol, then ast.
                 return Ok(MalType::new_list(vec![
                     MalType::symbol("quote".to_string()),
@@ -414,7 +414,7 @@ impl Repl {
                 }
                 Ok(MalType::new_vector(new_ast))
             }
-            MalType::Hashmap(hashmap) => {
+            MalType::Hashmap(hashmap, _) => {
                 let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =
                     IndexMap::with_capacity(hashmap.len());
 
@@ -422,7 +422,7 @@ impl Repl {
                     let new_value = Self::eval2(value.clone(), env.clone())?;
                     new_ast.insert(key.clone(), new_value);
                 }
-                Ok(Rc::new(MalType::Hashmap(new_ast)))
+                Ok(MalType::new_hashmap(new_ast))
             }
             _ => Ok(ast),
         }

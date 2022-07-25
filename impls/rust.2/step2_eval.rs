@@ -60,7 +60,7 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
             }
             Ok(MalType::new_vector(new_ast))
         }
-        MalType::Hashmap(hashmap) => {
+        MalType::Hashmap(hashmap, _) => {
             let mut new_ast: IndexMap<Rc<MalType>, Rc<MalType>> =
                 IndexMap::with_capacity(hashmap.len());
 
@@ -68,7 +68,7 @@ fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalE
                 let new_value = eval(value.clone(), env.clone())?;
                 new_ast.insert(key.clone(), new_value);
             }
-            Ok(Rc::new(MalType::Hashmap(new_ast)))
+            Ok(MalType::new_hashmap(new_ast))
         }
         _ => Ok(ast),
     }

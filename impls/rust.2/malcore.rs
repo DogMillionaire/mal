@@ -301,7 +301,7 @@ impl MalCore {
                 map.insert(pairs[0].clone(), pairs[1].clone());
             }
 
-            Ok(Rc::new(MalType::Hashmap(map)))
+            Ok(MalType::new_hashmap(map))
         });
 
         Self::add_param_list_func(env.clone(), "assoc", &|vals| {
@@ -323,7 +323,7 @@ impl MalCore {
                 new_map.insert(pairs[0].clone(), pairs[1].clone());
             }
 
-            return Ok(Rc::new(MalType::Hashmap(new_map)));
+            return Ok(MalType::new_hashmap(new_map));
         });
 
         Self::add_param_list_func(env.clone(), "dissoc", &|vals| {
@@ -338,7 +338,7 @@ impl MalCore {
                 new_map.remove(key);
             }
 
-            return Ok(Rc::new(MalType::Hashmap(new_map)));
+            return Ok(MalType::new_hashmap(new_map));
         });
 
         Self::add_binary_func(env.clone(), "get", &|map, key| {
