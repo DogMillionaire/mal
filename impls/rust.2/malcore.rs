@@ -441,7 +441,7 @@ impl MalCore {
                     let mut new_list = vec![];
                     to_add.rev().for_each(|v| new_list.push(v.clone()));
                     list.iter().for_each(|v| new_list.push(v.clone()));
-                    Ok(MalType::new_vector(new_list))
+                    Ok(MalType::new_list(new_list))
                 }
                 MalType::Vector(vector, _) => {
                     let mut new_vector = vec![];
