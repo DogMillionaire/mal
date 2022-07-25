@@ -399,7 +399,14 @@ impl MalCore {
         // with-meta,
         Self::add_binary_func(env.clone(), "with-meta", &|val, meta| val.set_meta(meta));
         // fn?
-        Self::add_unary_func(env.clone(), "fn?", &|f| Ok(MalType::bool(f.is_func())));
+        Self::add_unary_func(env.clone(), "fn?", &|f| match f.try_into_func() {
+            Ok(f) => Ok(MalType::bool(!f.is_macro())),
+            Err(_) => Ok(MalType::bool(false)),
+        });
+        Self::add_unary_func(env.clone(), "macro?", &|f| match f.try_into_func() {
+            Ok(f) => Ok(MalType::bool(f.is_macro())),
+            Err(_) => Ok(MalType::bool(false)),
+        });
         // string?,
         Self::add_unary_func(env.clone(), "string?", &|f| {
             Ok(MalType::bool(f.is_string()))

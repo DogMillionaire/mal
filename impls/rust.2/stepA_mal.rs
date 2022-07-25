@@ -12,6 +12,7 @@ use crate::repl::Repl;
 use crate::types::MalType;
 
 fn main() {
+    simple_logger::init_with_level(log::Level::Warn).unwrap();
     let args: Vec<String> = std::env::args().collect();
     let mut rl = rustyline::Editor::<()>::new();
     let _result = rl.load_history("history.txt");
