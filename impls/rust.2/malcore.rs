@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::time::{self, SystemTime, UNIX_EPOCH};
 use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc};
 
 use indexmap::IndexMap;
@@ -375,6 +376,93 @@ impl MalCore {
             Ok(MalType::list(values))
         });
 
+        Self::add_unary_func(env.clone(), "readline", &|prompt| {
+            let mut rl = rustyline::Editor::<()>::new();
+            let readline = rl.readline(prompt.try_into_string()?.as_str());
+
+            match readline {
+                Ok(input) => Ok(MalType::new_string(input)),
+                Err(_) => Ok(Rc::new(MalType::Nil)),
+            }
+        });
+
+        // time-ms,
+        Self::add_no_args(env.clone(), "time-ms", &|| {
+            let ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Can't get system time")
+                .as_millis() as isize;
+            Ok(MalType::number(ms))
+        });
+        // meta,
+        Self::add_unary_func(env.clone(), "meta", &|_val| {
+            Err(MalError::Exception(MalType::new_string(
+                "Not implemented".to_string(),
+            )))
+        });
+        // with-meta,
+        Self::add_binary_func(env.clone(), "with-meta", &|_val, _meta| {
+            Err(MalError::Exception(MalType::new_string(
+                "Not implemented".to_string(),
+            )))
+        });
+        // fn?
+        Self::add_unary_func(env.clone(), "fn?", &|f| Ok(MalType::bool(f.is_func())));
+        // string?,
+        Self::add_unary_func(env.clone(), "string?", &|f| {
+            Ok(MalType::bool(f.is_string()))
+        });
+        // number?,
+        Self::add_unary_func(env.clone(), "number?", &|f| {
+            Ok(MalType::bool(f.is_number()))
+        });
+        // seq,
+        Self::add_unary_func(env.clone(), "seq", &|val| match val.as_ref() {
+            MalType::List(vec) | MalType::Vector(vec) => {
+                if vec.is_empty() {
+                    return Ok(Rc::new(MalType::Nil));
+                }
+                Ok(MalType::list(vec.clone()))
+            }
+            MalType::String(s) => {
+                if s.is_empty() {
+                    return Ok(Rc::new(MalType::Nil));
+                }
+                let chars: Vec<_> = s
+                    .chars()
+                    .map(|c| MalType::new_string(String::from(c)))
+                    .collect();
+                Ok(MalType::list(chars))
+            }
+            MalType::Nil => Ok(Rc::new(MalType::Nil)),
+            _ => Err(MalError::Exception(MalType::new_string(
+                "seq can only be called on List, Vector, String or Nil".to_string(),
+            ))),
+        });
+        // conj
+        Self::add_param_list_func(env.clone(), "conj", &|params| {
+            let list_or_vector = params[0].clone();
+            let to_add = params.iter().skip(1).map(|v| v.clone());
+
+            match list_or_vector.as_ref() {
+                MalType::List(list) => {
+                    let mut new_list = vec![];
+                    to_add.rev().for_each(|v| new_list.push(v.clone()));
+                    list.iter().for_each(|v| new_list.push(v.clone()));
+                    Ok(Rc::new(MalType::Vector(new_list)))
+                }
+                MalType::Vector(vector) => {
+                    let mut new_vector = vec![];
+                    vector.iter().for_each(|v| new_vector.push(v.clone()));
+                    to_add.for_each(|v| new_vector.push(v.clone()));
+                    Ok(Rc::new(MalType::Vector(new_vector)))
+                }
+                _ => Err(MalError::Exception(MalType::new_string(
+                    "conj can only be called on List or Vector".to_string(),
+                ))),
+            }
+        });
+
         instance
     }
 
@@ -526,6 +614,30 @@ impl MalCore {
             let a = func_env.borrow().get("a".to_string())?;
             func(a, env)
         };
+
+        let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
+            Some(name.to_string()),
+            params,
+            body,
+            env.clone(),
+            Rc::new(MalType::Nil),
+        )));
+
+        env.borrow_mut().set(name.to_string(), malfunc);
+    }
+
+    fn add_no_args(
+        env: Rc<RefCell<Env>>,
+        name: &str,
+        func: &'static dyn Fn() -> Result<Rc<MalType>, MalError>,
+    ) {
+        let params = vec![];
+
+        let body = |_env: Rc<RefCell<Env>>,
+                    _body: Rc<MalType>,
+                    _params: Vec<Rc<MalType>>,
+                    _param_values: Vec<Rc<MalType>>|
+         -> Result<Rc<MalType>, MalError> { func() };
 
         let malfunc = Rc::new(MalType::Func(MalFunc::new_with_closure(
             Some(name.to_string()),

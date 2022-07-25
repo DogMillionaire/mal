@@ -159,6 +159,9 @@ impl Reader {
                     } else if (idx < chars.len() - 1) && chars[idx + 1] == 'A' {
                         idx += 5;
                         Token::Atom("*ARGV*".to_string())
+                    } else if (idx < chars.len() - 1) && chars[idx + 1] == 'h' {
+                        idx += 14;
+                        Token::Atom("*host-language*".to_string())
                     } else {
                         Token::Atom("*".to_string())
                     }
@@ -292,21 +295,10 @@ impl Reader {
 
                 types.push(Rc::new(MalType::Symbol("with-meta".to_string())));
                 self.next();
-                let hashmap = self.read_form()?;
-                assert_matches!(
-                    hashmap.as_ref(),
-                    MalType::Hashmap(_),
-                    "First element after with-meta should be a hashmap"
-                );
-                let vector = self.read_form()?;
-
-                assert_matches!(
-                    vector.as_ref(),
-                    MalType::Vector(_),
-                    "First element after with-meta should be a vector"
-                );
-                types.push(vector);
-                types.push(hashmap);
+                let value = self.read_form()?;
+                let meta = self.read_form()?;
+                types.push(meta);
+                types.push(value);
 
                 Ok(Rc::new(MalType::List(types)))
             }

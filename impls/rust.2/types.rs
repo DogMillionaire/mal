@@ -400,6 +400,14 @@ impl MalType {
 
         return true;
     }
+
+    /// Returns `true` if the mal type is [`Number`].
+    ///
+    /// [`Number`]: MalType::Number
+    #[must_use]
+    pub fn is_number(&self) -> bool {
+        matches!(self, Self::Number(..))
+    }
 }
 
 impl Eq for MalType {
