@@ -234,10 +234,12 @@ impl Repl {
                             current_env.clone(),
                         );
                         current_ast = func.body_ast();
-                    } else {
+                    } else if f.is_func() {
                         return f.try_into_func()?.apply(args);
                         //                     else:           return apply(f, args)
                         //return Self::apply(f.clone(), args);
+                    } else {
+                        return Ok(current_ast);
                     }
                 }
             }
