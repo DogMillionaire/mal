@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use indexmap::IndexMap;
 
-use crate::env::Env;
+use crate::env::{Env, MalEnv};
 use crate::malerror::MalError;
 
 pub enum MalType {
@@ -124,6 +124,15 @@ impl MalFunc {
 
     pub fn set_is_macro(&self) {
         self.is_macro.replace(true);
+    }
+
+    pub fn apply(&self, args: Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError> {
+        self.body.as_ref().expect("Body must be set")(
+            self.env.clone(),
+            self.body_ast.clone(),
+            self.parameters.clone(),
+            args,
+        )
     }
 }
 
