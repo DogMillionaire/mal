@@ -241,7 +241,7 @@ impl MalCore {
         });
         Self::add_param_list_func_with_env(env.clone(), "apply", &|params, env| {
             let func = params[0].clone();
-            let mut args = vec![func];
+            let mut args = vec![];
             params[1..params.len() - 1]
                 .iter()
                 .for_each(|v| args.push(v.clone()));
@@ -252,7 +252,9 @@ impl MalCore {
                 .iter()
                 .for_each(|v| args.push(v.clone()));
 
-            Repl::eval2(MalType::list(args), env.clone())
+            func.try_into_func()?.apply(args)
+
+            //Repl::eval2(MalType::list(args), env.clone())
         });
 
         Self::add_unary_func(env.clone(), "nil?", &|a| Ok(MalType::bool(a.is_nil())));
