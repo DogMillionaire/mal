@@ -104,7 +104,7 @@ impl MalCore {
             }
         });
 
-        Self::add_unary_func_with_env(env.clone(), "eval", &|ast, env| Repl::eval2(ast, env));
+        Self::add_unary_func_with_env(env.clone(), "eval", &|ast, env| Repl::eval(ast, env));
 
         Self::add_unary_func(env.clone(), "read-string", &|str| {
             let input = str.try_into_string()?;
@@ -141,7 +141,7 @@ impl MalCore {
                 .iter()
                 .for_each(|p| func_ast.push(p.clone()));
 
-            let new_value = Repl::eval2(MalType::new_list(func_ast), env.clone())?;
+            let new_value = Repl::eval(MalType::new_list(func_ast), env.clone())?;
             atom_value.replace(new_value.clone());
 
             Ok(new_value)

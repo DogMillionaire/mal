@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use indexmap::IndexMap;
-use log::debug;
+use log::{debug, info};
 
 use crate::{
     env::{Env, MalEnv},
@@ -30,16 +30,16 @@ impl Repl {
 
     pub fn rep(&mut self, input: String) -> Result<String, MalError> {
         let read_result = Self::read(input)?;
-        let eval_result = Self::eval2(read_result, self.env.clone())?;
+        let eval_result = Self::eval(read_result, self.env.clone())?;
         Ok(Self::print(eval_result))
     }
 
-    pub fn eval2(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
+    pub fn eval(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {
         // while true:
         let mut current_ast = ast;
         let mut current_env = env;
         loop {
-            debug!("eval: {}", current_ast);
+            info!("eval: {}", current_ast);
             // println!("eval={:?}", current_ast);
             //     if not list?(ast): return eval_ast(ast, env)
             if !current_ast.is_list() {
@@ -61,7 +61,7 @@ impl Repl {
             match ast_list[0].as_ref() {
                 //     'def!:        return env.set(ast[1], EVAL(ast[2], env))
                 MalType::Symbol(s) if s == "def!" => {
-                    let val = Self::eval2(ast_list[2].clone(), current_env.clone())?;
+                    let val = Self::eval(ast_list[2].clone(), current_env.clone())?;
                     current_env
                         .borrow_mut()
                         .set(ast_list[1].try_into_symbol().unwrap(), val.clone());
@@ -77,7 +77,7 @@ impl Repl {
 
                     for binding in bindings {
                         let key = binding[0].clone();
-                        let value = Self::eval2(binding[1].clone(), new_env.clone())?;
+                        let value = Self::eval(binding[1].clone(), new_env.clone())?;
 
                         {
                             let mut mut_env = new_env.as_ref().borrow_mut();
@@ -94,14 +94,16 @@ impl Repl {
                 }
                 //     'quasiquote:  ast = quasiquote(ast[1]) // TCO
                 MalType::Symbol(s) if s == "quasiquote" => {
-                    current_ast = Self::quasiquote(ast_list[1].clone(), current_env.clone())?;
+                    info!("Before quasiquote: {}", ast_list[1]);
+                    current_ast = Self::quasiquote(ast_list[1].clone())?;
+                    info!("After quasiquote: {}", current_ast);
                 }
                 MalType::Symbol(s) if s == "quasiquoteexpand" => {
-                    return Self::quasiquote(ast_list[1].clone(), current_env.clone());
+                    return Self::quasiquote(ast_list[1].clone());
                 }
                 //     'defmacro!:   return ... // like def!, but set macro property
                 MalType::Symbol(s) if s == "defmacro!" => {
-                    let val = Self::eval2(ast_list[2].clone(), current_env.clone())?;
+                    let val = Self::eval(ast_list[2].clone(), current_env.clone())?;
 
                     let new_func = val.try_into_func()?.clone();
                     new_func.set_is_macro();
@@ -118,7 +120,7 @@ impl Repl {
                 }
                 //     'try*:        return ... // try/catch native and malval exceptions
                 MalType::Symbol(s) if s == "try*" => {
-                    match Self::eval2(ast_list[1].clone(), current_env.clone()) {
+                    match Self::eval(ast_list[1].clone(), current_env.clone()) {
                         Ok(ast) => current_ast = ast,
                         Err(e) if e.is_exception() => {
                             if ast_list.len() < 3 {
@@ -137,7 +139,7 @@ impl Repl {
                                     .expect("Expected MalError::Exception")]),
                                 current_env.clone(),
                             );
-                            current_ast = Self::eval2(catch_body, catch_env.clone())?;
+                            current_ast = Self::eval(catch_body, catch_env.clone())?;
                         }
                         Err(e) => return Err(e),
                     }
@@ -157,7 +159,7 @@ impl Repl {
                 }
                 //     'if:          EVAL(ast[1], env) ? ast = ast[2] : ast = ast[3] // TCO
                 MalType::Symbol(s) if s == "if" => {
-                    let cond = Self::eval2(ast_list[1].clone(), current_env.clone())?;
+                    let cond = Self::eval(ast_list[1].clone(), current_env.clone())?;
                     if !cond.is_false() && !cond.is_nil() {
                         current_ast = ast_list[2].clone();
                     } else {
@@ -179,7 +181,7 @@ impl Repl {
                           body: Rc<MalType>,
                           params: Vec<Rc<MalType>>,
                           param_values: Vec<Rc<MalType>>| {
-                            Self::eval2(
+                            Self::eval(
                                 body.clone(),
                                 Env::new_with_outer(
                                     Some(params.clone()),
@@ -294,75 +296,58 @@ impl Repl {
         };
     }
 
-    fn is_list_starting_with_symbol(ast: Rc<MalType>, symbol: &str) -> bool {
-        match ast.clone().as_ref() {
-            MalType::List(list, _) if !list.is_empty() => {
-                if let Ok(s) = list[0].try_into_symbol() {
-                    return s == symbol;
-                }
-                false
-            }
-            _ => false,
-        }
-    }
-
-    fn quasiquote(ast: Rc<MalType>, env: MalEnv) -> Result<Rc<MalType>, MalError> {
-        match ast.clone().as_ref() {
-            MalType::List(list, _) => {
-                if Self::is_list_starting_with_symbol(ast, "unquote") {
-                    // If ast is a list starting with the "unquote" symbol, return its second element.
-                    return Ok(list[1].clone());
-                } else {
-                    // If ast is a list failing previous test, the result will be a list populated by the following process.
-                    let mut current_result: Rc<MalType> = MalType::new_list(vec![]);
-                    // The result is initially an empty list. Iterate over each element elt of ast in reverse order:
-                    for elt in list.iter().rev() {
-                        if Self::is_list_starting_with_symbol(elt.clone(), "splice-unquote") {
-                            // If elt is a list starting with the "splice-unquote" symbol,
-                            // replace the current result with a list containing:
-                            //  the "concat" symbol, the second element of elt, then the previous result.
-
-                            let elt_list = elt.try_into_list()?;
-
+    fn quasiquote_elements(list: &Vec<Rc<MalType>>) -> Result<Rc<MalType>, MalError> {
+        info!("quasiquote_elements: {:?}", list);
+        // If ast is a list failing previous test, the result will be a list populated by the following process.
+        let mut current_result: Rc<MalType> = MalType::new_list(vec![]);
+        // The result is initially an empty list. Iterate over each element elt of ast in reverse order:
+        for elt in list.iter().rev() {
+            if let MalType::List(elt_list, _) = elt.as_ref() {
+                if elt_list.len() == 2 {
+                    if let MalType::Symbol(s) = elt_list[0].as_ref() {
+                        if s == "splice-unquote" {
                             current_result = MalType::new_list(vec![
                                 MalType::symbol("concat".to_string()),
                                 elt_list[1].clone(),
                                 current_result,
                             ]);
-                        } else {
-                            // Else replace the current result with a list containing:
-                            // the "cons" symbol, the result of calling quasiquote with elt as argument,
-                            // then the previous result.
-                            current_result = MalType::new_list(vec![
-                                MalType::symbol("cons".to_string()),
-                                Self::quasiquote(elt.clone(), env.clone())?,
-                                current_result,
-                            ]);
+                            continue;
                         }
                     }
-
-                    return Ok(current_result);
                 }
             }
-            MalType::Vector(v, _) => {
-                if v.is_empty() {
-                    return Ok(MalType::new_list(vec![
-                        MalType::symbol("vec".to_string()),
-                        MalType::new_list(vec![]),
-                    ]));
+            // Else replace the current result with a list containing:
+            // the "cons" symbol, the result of calling quasiquote with elt as argument,
+            // then the previous result.
+            current_result = MalType::new_list(vec![
+                MalType::symbol("cons".to_string()),
+                Self::quasiquote(elt.clone())?,
+                current_result,
+            ]);
+        }
+
+        info!("after quasiquote_elements: {:?}", current_result);
+        return Ok(current_result);
+    }
+
+    fn quasiquote(ast: Rc<MalType>) -> Result<Rc<MalType>, MalError> {
+        info!("quasiquote: {}", ast);
+        match ast.clone().as_ref() {
+            MalType::List(list, _) => {
+                if list.len() == 2 {
+                    if let MalType::Symbol(s) = list[0].as_ref() {
+                        if s == "unquote" {
+                            return Ok(list[1].clone());
+                        }
+                    }
                 }
-                let mut result_list = vec![MalType::symbol("vec".to_string())];
-                let quasicote_result = Self::quasiquote(MalType::new_list(v.clone()), env.clone())?;
-
-                let mut results: Vec<Rc<MalType>> = vec![];
-                quasicote_result
-                    .get_as_vec()?
-                    .iter()
-                    .for_each(|v| results.push(v.clone()));
-
-                result_list.push(MalType::new_list(results));
-
-                return Ok(MalType::new_list(result_list));
+                return Self::quasiquote_elements(list);
+            }
+            MalType::Vector(v, _) => {
+                return Ok(MalType::new_list(vec![
+                    MalType::symbol("vec".to_string()),
+                    Self::quasiquote_elements(&v)?,
+                ]));
             }
             MalType::Symbol(_) | MalType::Hashmap(_, _) => {
                 // If ast is a map or a symbol, return a list containing: the "quote" symbol, then ast.
@@ -389,7 +374,7 @@ impl Repl {
             MalType::List(list, _) => {
                 let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(list.len());
                 for value in list {
-                    let new_value = Self::eval2(value.clone(), env.clone())?;
+                    let new_value = Self::eval(value.clone(), env.clone())?;
                     new_ast.push(new_value);
                 }
                 Ok(MalType::new_list(new_ast))
@@ -397,7 +382,7 @@ impl Repl {
             MalType::Vector(vector, _) => {
                 let mut new_ast: Vec<Rc<MalType>> = Vec::with_capacity(vector.len());
                 for value in vector {
-                    let new_value = Self::eval2(value.clone(), env.clone())?;
+                    let new_value = Self::eval(value.clone(), env.clone())?;
                     new_ast.push(new_value);
                 }
                 Ok(MalType::new_vector(new_ast))
@@ -407,7 +392,7 @@ impl Repl {
                     IndexMap::with_capacity(hashmap.len());
 
                 for (key, value) in hashmap {
-                    let new_value = Self::eval2(value.clone(), env.clone())?;
+                    let new_value = Self::eval(value.clone(), env.clone())?;
                     new_ast.insert(key.clone(), new_value);
                 }
                 Ok(MalType::new_hashmap(new_ast))
@@ -430,7 +415,7 @@ mod tests {
         let repl = Repl::new(None, None);
         MalCore::add_to_env(repl.env());
 
-        let eval_result = Repl::eval2(ast, repl.env()).expect("Expected evaluation to succeed");
+        let eval_result = Repl::eval(ast, repl.env()).expect("Expected evaluation to succeed");
 
         assert_matches!(eval_result.as_ref(), MalType::List(_, _));
     }
