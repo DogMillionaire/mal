@@ -54,5 +54,5 @@ name = "step9_try"
 path = "step9_try.rs"
 
 [[bin]]
-name = "stepA_mal"
-path = "stepA_mal.rs"
+name = "stepa_mal"
+path = "stepa_mal.rs"
