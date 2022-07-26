@@ -48,7 +48,7 @@ fn main() {
         Rc::new(MalType::String(String::from("rust.2"))),
     );
 
-    if let Some(file) = args.iter().nth(1) {
+    if let Some(file) = args.get(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
             Err(err) => println!("Error: {}", err),

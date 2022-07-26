@@ -104,7 +104,7 @@ impl MalCore {
             }
         });
 
-        Self::add_unary_func_with_env(env.clone(), "eval", &|ast, env| Repl::eval(ast, env));
+        Self::add_unary_func_with_env(env.clone(), "eval", &Repl::eval);
 
         Self::add_unary_func(env.clone(), "read-string", &|str| {
             let input = str.try_into_string()?;
@@ -173,14 +173,12 @@ impl MalCore {
         });
 
         Self::add_unary_func(env.clone(), "vec", &|list| match list.as_ref() {
-            MalType::Vector(_, _) => return Ok(list),
-            MalType::List(l, _) => return Ok(MalType::new_vector(l.clone())),
-            _ => {
-                return Err(MalError::InvalidType(
-                    "MalType::Vector or MalType::List".to_string(),
-                    list.type_name(),
-                ))
-            }
+            MalType::Vector(_, _) => Ok(list),
+            MalType::List(l, _) => Ok(MalType::new_vector(l.clone())),
+            _ => Err(MalError::InvalidType(
+                "MalType::Vector or MalType::List".to_string(),
+                list.type_name(),
+            )),
         });
 
         Self::add_binary_func(env.clone(), "nth", &|a, b| {
@@ -216,7 +214,7 @@ impl MalCore {
                     return Ok(MalType::new_list(vec![]));
                 }
                 let rest = v.iter().skip(1).map(|v| v.clone()).collect();
-                return Ok(MalType::new_list(rest));
+                Ok(MalType::new_list(rest))
             }
             MalType::Nil => Ok(MalType::new_list(vec![])),
             _ => Err(MalError::InvalidType(
@@ -239,7 +237,7 @@ impl MalCore {
                 results.push(func_to_apply.apply(vec![value.clone()])?);
             }
 
-            return Ok(MalType::new_list(results));
+            Ok(MalType::new_list(results))
         });
         Self::add_param_list_func(env.clone(), "apply", &|params| {
             let func = params[0].clone();

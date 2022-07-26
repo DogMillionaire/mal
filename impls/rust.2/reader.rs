@@ -50,10 +50,10 @@ impl Reader {
     }
 
     fn is_special_char(c: char) -> bool {
-        match c {
-            '[' | ']' | '{' | '}' | '(' | ')' | '\'' | '`' | '~' | '^' | '@' => true,
-            _ => false,
-        }
+        matches!(
+            c,
+            '[' | ']' | '{' | '}' | '(' | ')' | '\'' | '`' | '~' | '^' | '@'
+        )
     }
 
     fn read_string(chars: &Vec<char>, start: usize) -> Result<(usize, String), MalError> {
@@ -288,9 +288,9 @@ impl Reader {
             Token::SpliceUnquote => self.read_macro("splice-unquote".to_string()),
             Token::Deref => self.read_macro("deref".to_string()),
             Token::WithMeta => {
-                let mut types: Vec<Rc<MalType>> = vec![];
+                let mut types: Vec<Rc<MalType>> =
+                    vec![Rc::new(MalType::Symbol("with-meta".to_string()))];
 
-                types.push(Rc::new(MalType::Symbol("with-meta".to_string())));
                 self.next();
                 let value = self.read_form()?;
                 let meta = self.read_form()?;
@@ -309,9 +309,8 @@ impl Reader {
     }
 
     fn read_macro(&mut self, symbol: String) -> Result<Rc<MalType>, MalError> {
-        let mut types: Vec<Rc<MalType>> = vec![];
+        let mut types: Vec<Rc<MalType>> = vec![Rc::new(MalType::Symbol(symbol))];
 
-        types.push(Rc::new(MalType::Symbol(symbol)));
         self.next();
         types.push(self.read_form()?);
 

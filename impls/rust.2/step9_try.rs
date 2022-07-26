@@ -42,7 +42,7 @@ fn main() {
         .borrow_mut()
         .set(String::from("*ARGV*"), MalType::new_list(arg_list));
 
-    if let Some(file) = args.iter().nth(1) {
+    if let Some(file) = args.get(1) {
         match repl.rep(format!("(load-file \"{}\")", file)) {
             Ok(_) => {}
             Err(err) => eprintln!("{}", err),

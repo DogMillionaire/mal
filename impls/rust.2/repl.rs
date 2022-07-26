@@ -261,7 +261,7 @@ impl Repl {
         //     "\t<==macroexpand={}",
         //     printer::Printer::pr_str(current_ast.as_ref(), true)
         // );
-        return Ok(current_ast.clone());
+        Ok(current_ast.clone())
     }
 
     fn get_macro_symbol(symbol: Rc<MalType>, env: MalEnv) -> Option<Rc<MalType>> {
@@ -276,7 +276,7 @@ impl Repl {
             }
         }
 
-        return None;
+        None
     }
 
     fn get_macro_call(ast: Rc<MalType>, env: MalEnv) -> Option<(Rc<MalType>, Vec<Rc<MalType>>)> {
@@ -284,15 +284,15 @@ impl Repl {
         // It returns true if ast is a list that contains a symbol as the first element
         //  and that symbol refers to a function in the env environment and that
         // function has the is_macro attribute set to true. Otherwise, it returns false.
-        match ast.as_ref() {
-            MalType::List(l, _) if l.len() > 0 => {
+        return match ast.as_ref() {
+            MalType::List(l, _) if !l.is_empty() => {
                 if let Some(func) = Self::get_macro_symbol(l[0].clone(), env) {
                     let args: Vec<_> = l[1..].iter().map(|v| v.clone()).collect();
                     return Some((func, args));
                 }
-                return None;
+                None
             }
-            _ => return None,
+            _ => None,
         };
     }
 
@@ -327,12 +327,12 @@ impl Repl {
         }
 
         info!("after quasiquote_elements: {:?}", current_result);
-        return Ok(current_result);
+        Ok(current_result)
     }
 
     fn quasiquote(ast: Rc<MalType>) -> Result<Rc<MalType>, MalError> {
         info!("quasiquote: {}", ast);
-        match ast.clone().as_ref() {
+        return match ast.clone().as_ref() {
             MalType::List(list, _) => {
                 if list.len() == 2 {
                     if let MalType::Symbol(s) = list[0].as_ref() {
@@ -341,30 +341,27 @@ impl Repl {
                         }
                     }
                 }
-                return Self::quasiquote_elements(list);
+                Self::quasiquote_elements(list)
             }
-            MalType::Vector(v, _) => {
-                return Ok(MalType::new_list(vec![
-                    MalType::symbol("vec".to_string()),
-                    Self::quasiquote_elements(&v)?,
-                ]));
-            }
+            MalType::Vector(v, _) => Ok(MalType::new_list(vec![
+                MalType::symbol("vec".to_string()),
+                Self::quasiquote_elements(&v)?,
+            ])),
             MalType::Symbol(_) | MalType::Hashmap(_, _) => {
                 // If ast is a map or a symbol, return a list containing: the "quote" symbol, then ast.
-                return Ok(MalType::new_list(vec![
+                Ok(MalType::new_list(vec![
                     MalType::symbol("quote".to_string()),
                     ast.clone(),
-                ]));
+                ]))
             }
             // Else return ast unchanged. Such forms are not affected by evaluation, so you may quote them as in the previous case if implementation is easier.
-            _ => return Ok(ast),
+            _ => Ok(ast),
         };
     }
 
     fn read(input: String) -> Result<Rc<MalType>, MalError> {
         let mut reader = Reader::read_str(input)?;
-        let result = reader.read_form();
-        result
+        reader.read_form()
     }
 
     fn eval_ast(ast: Rc<MalType>, env: Rc<RefCell<Env>>) -> Result<Rc<MalType>, MalError> {

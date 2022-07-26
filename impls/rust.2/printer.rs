@@ -34,7 +34,7 @@ impl Display for MalType {
 
 impl Printer {
     fn print_seperated(
-        list: &Vec<Rc<MalType>>,
+        list: &[Rc<MalType>],
         start_char: char,
         end_char: char,
         seperator: &str,

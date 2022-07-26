@@ -109,7 +109,7 @@ impl MalFunc {
     }
 
     pub fn is_macro(&self) -> bool {
-        self.is_macro.borrow().clone()
+        *self.is_macro.borrow()
     }
 
     pub fn set_is_macro(&self) {
@@ -209,14 +209,14 @@ impl MalType {
     }
 
     pub fn get_as_vec(&self) -> Result<Vec<Rc<MalType>>, MalError> {
-        return match self {
+        match self {
             MalType::Vector(v, _) => Ok(v.clone()),
             MalType::List(l, _) => Ok(l.clone()),
             _ => Err(MalError::InvalidType(
                 "MalType::Vector or MalType::List".to_string(),
                 self.type_name(),
             )),
-        };
+        }
     }
 
     fn compare_as_vec(this: &MalType, other: &MalType) -> bool {
@@ -404,7 +404,7 @@ impl MalType {
             }
         }
 
-        return true;
+        true
     }
 
     /// Returns `true` if the mal type is [`Number`].
