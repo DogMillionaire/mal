@@ -59,7 +59,7 @@ def read_string(reader: Reader) -> MalToken:
 def read_atom(reader: Reader) -> MalToken:
     token = reader.next()
 
-    if token.value[0].isdigit():
+    if token.value[0].isdigit() or (token.value[0] == "-" and len(token.value) > 1 and token.value[1].isdigit()):
         return MalNumber(token.value, token.start, token.end)
 
     match token.value:
