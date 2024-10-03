@@ -1,7 +1,7 @@
 import re
 from tracemalloc import start
 
-from mal_types import MalBoolean, MalHashMap, MalList, MalNil, MalNumber, MalString, MalSymbol, MalVector
+from mal_types import MalBoolean, MalHashMap, MalKeyword, MalList, MalNil, MalNumber, MalString, MalSymbol, MalVector
 from mal_token import MalToken
 from mal_error import MalEOFError, MalNoInputError, MalSyntaxError
 
@@ -142,7 +142,7 @@ def read_form(reader: Reader) -> MalToken:
             return read_macro(reader, "deref")
         case ":":
             reader.next()
-            return MalString(chr(0x29E) + token.value[1:], token.start, token.end)
+            return MalKeyword(token.value[1:], token.start, token.end)
         case _:
             return read_atom(reader)
 

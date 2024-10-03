@@ -169,3 +169,15 @@ class MalString(MalToken):
         if isinstance(other, MalString):
             return MalBoolean(self.value == other.value, self.start, other.end)
         return MalBoolean(False)
+    
+class MalKeyword(MalToken):
+    def __str__(self):
+        return f":{self.value}"
+    
+    def str(self, _: bool):
+        return f":{self.value}"
+    
+    def __eq__(self, other):
+        if isinstance(other, MalKeyword):
+            return MalBoolean(self.value == other.value, self.start, other.end)
+        return MalBoolean(False)
