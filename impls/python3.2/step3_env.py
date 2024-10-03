@@ -1,7 +1,8 @@
 from typing import Any
 from reader import MalSyntaxError, read_form, read_str
 from printer import pr_str
-from mal_token import MalBoolean, MalCollection, MalHashMap, MalList, MalNil, MalSymbol, MalToken, MalVector
+from mal_token import MalToken
+from mal_types import MalBoolean, MalCollection, MalHashMap, MalList, MalNil, MalSymbol, MalVector
 from mal_error import MalError, MalNoInputError, MalSymbolNotFoundError
 from mal_env import MalEnv
 import mal_readline
