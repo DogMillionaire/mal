@@ -1,3 +1,4 @@
+from os import read
 import re
 from tracemalloc import start
 
@@ -82,7 +83,11 @@ def read_elements(reader: Reader, collection_type: type, end_token: str) -> tupl
     # Read elements until we reach the closing token
     try:
         while reader.peek().value != end_token:
-            elements.append(read_form(reader))
+            try:
+                elements.append(read_form(reader))
+            except MalNoInputError: 
+                reader.next() # Skip comments
+                continue
     except MalEOFError:
         raise MalSyntaxError(f"EOF encountered while reading {str(collection_type)} starting at position {start}", start)
 

@@ -181,3 +181,32 @@ class MalKeyword(MalToken):
         if isinstance(other, MalKeyword):
             return MalBoolean(self.value == other.value, self.start, other.end)
         return MalBoolean(False)
+    
+class MalAtom(MalToken):
+    value: MalToken
+
+    def __init__(self, value: MalToken, start: int = -1, end: int = -1):
+        super().__init__(value.value, start, end)
+        self.value = value
+
+    def str(self, print_readably: bool = False):
+        return f"(atom {self.value.str(print_readably)})"
+
+    def __str__(self):
+        return f"(atom {self.value})"
+    
+    def __eq__(self, other):
+        if isinstance(other, MalAtom):
+            return MalBoolean(self.value == other.value, self.start, other.end)
+        return MalBoolean(False)
+    
+    def deref(self):
+        return self.value
+    
+    def reset(self, new_value: MalToken):
+        self.value = new_value
+        return new_value
+    
+    def swap(self, function, *args):
+        self.value = function(self.value, *args)
+        return self.value

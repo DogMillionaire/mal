@@ -1,9 +1,8 @@
-from optparse import Option
-from typing import Optional
 from mal_token import MalToken
-from mal_types import MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString
+from mal_types import MalAtom, MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString
 from mal_function import MalNativeFunction
 from printer import pr_str
+from reader import read_form, read_str
 
 def prn(print_readable: bool, tokens: list[MalToken]) -> MalNil:
     if tokens:
@@ -30,4 +29,10 @@ ns = {
     'str': MalNativeFunction("str", lambda *a: MalString("".join([pr_str(e, False) for e in a]), -1, -1)),
     'prn': MalNativeFunction("prn", lambda *a: prn(True, [*a])),
     'println': MalNativeFunction("println", lambda *a: prn(False, [*a])),
+    'read-string': MalNativeFunction("read-string", lambda a: read_form(read_str(a.value))),
+    'slurp': MalNativeFunction("slurp", lambda a: MalString(open(a.value).read())),
+    'atom': MalNativeFunction("atom", lambda a: MalAtom(a)),
+    'atom?': MalNativeFunction("atom?", lambda a: MalBoolean(isinstance(a, MalAtom))),
+    'deref': MalNativeFunction("deref", lambda a: a.deref()),
+    'reset!': MalNativeFunction("reset!", lambda a, b: a.reset(b)),
 }
