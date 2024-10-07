@@ -7,7 +7,7 @@ class MalSymbol(MalToken):
         return self.value
     
     def __eq__(self, other):
-        if isinstance(other, MalToken):
+        if isinstance(other, MalSymbol):
             return MalBoolean(self.value == other.value, self.start, other.end)
         return MalBoolean(False)
 
@@ -80,7 +80,7 @@ class MalCollection(MalToken, ABC):
         self.size = len(elements)
         self.start_token = start_token
         self.end_token = end_token
-        super().__init__("(", start, end)
+        super().__init__(f"{self.start_token}{' '.join(str(e) for e in self.elements)}{self.end_token}", start, end)
 
     def __str__(self):
         return f"{self.start_token}{' '.join(str(e) for e in self.elements)}{self.end_token}"

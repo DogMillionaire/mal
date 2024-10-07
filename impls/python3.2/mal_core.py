@@ -1,8 +1,9 @@
 from mal_token import MalToken
-from mal_types import MalAtom, MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString
+from mal_types import MalAtom, MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString, MalVector
 from mal_function import MalNativeFunction
 from printer import pr_str
 from reader import read_form, read_str
+from mal_error import MalSyntaxError
 
 def prn(print_readable: bool, tokens: list[MalToken]) -> MalNil:
     if tokens:
@@ -10,6 +11,13 @@ def prn(print_readable: bool, tokens: list[MalToken]) -> MalNil:
     else:
         print()
     return MalNil()
+
+def vec(list:MalCollection) -> MalVector:
+    if not isinstance(list, MalCollection):
+        raise MalSyntaxError(f"Cannot convert {type(list)} to a vector", list.start)
+    if isinstance(list, MalVector):
+        return list
+    return MalVector(list.elements, list.start, list.end)
 
 ns = {
     '+': MalNativeFunction("+", lambda a,b: a+b),
@@ -35,4 +43,7 @@ ns = {
     'atom?': MalNativeFunction("atom?", lambda a: MalBoolean(isinstance(a, MalAtom))),
     'deref': MalNativeFunction("deref", lambda a: a.deref()),
     'reset!': MalNativeFunction("reset!", lambda a, b: a.reset(b)),
+    'cons' : MalNativeFunction("cons", lambda a, b: MalList([a, *b.elements])),
+    'concat': MalNativeFunction("concat", lambda *a: MalList([e for l in a for e in l.elements])),
+    'vec': MalNativeFunction("vec", lambda a: vec(a)),
 }
