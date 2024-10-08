@@ -199,7 +199,7 @@ def main() -> None:
 
     rep("(def! not (fn* (a) (if a false true)))", repl_env)
     rep("""(def! load-file (fn* (f) (eval (read-string (str "(do " (slurp f) "\nnil)")))))""", repl_env)
-    rep("(def! DEBUG-EVAL true)", repl_env)
+    #rep("(def! DEBUG-EVAL true)", repl_env)
 
     args = sys.argv[1:]
     
