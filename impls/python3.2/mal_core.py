@@ -1,6 +1,6 @@
 from mal_token import MalToken
 from mal_types import MalAtom, MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString, MalVector
-from mal_function import MalNativeFunction
+from mal_function import MalFunction, MalNativeFunction
 from printer import pr_str
 from reader import read_form, read_str
 from mal_error import MalSyntaxError
@@ -18,6 +18,16 @@ def vec(list:MalCollection) -> MalVector:
     if isinstance(list, MalVector):
         return list
     return MalVector(list.elements, list.start, list.end)
+
+def first(collection:MalCollection) -> MalToken:
+    if not isinstance(collection, MalCollection) or len(collection.elements) == 0:
+        return MalNil()
+    return collection.elements[0]
+
+def rest(collection:MalCollection) -> MalToken:
+    if not isinstance(collection, MalCollection) or len(collection.elements) == 0:
+        return MalList([])
+    return MalList(collection.elements[1:], collection.start, collection.end)
 
 ns = {
     '+': MalNativeFunction("+", lambda a,b: a+b),
@@ -46,4 +56,8 @@ ns = {
     'cons' : MalNativeFunction("cons", lambda a, b: MalList([a, *b.elements])),
     'concat': MalNativeFunction("concat", lambda *a: MalList([e for l in a for e in l.elements])),
     'vec': MalNativeFunction("vec", lambda a: vec(a)),
+    'nth': MalNativeFunction("nth", lambda a, b:  a.elements[b.numeric_value]),
+    'first': MalNativeFunction("first", lambda a: first(a)),
+    'rest': MalNativeFunction("rest", lambda a: rest(a)),
+    'macro?': MalNativeFunction("macro?", lambda a: MalBoolean(isinstance(a, MalFunction) and a.is_macro)),
 }
