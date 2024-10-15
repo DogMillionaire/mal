@@ -31,5 +31,12 @@ class MalEnv:
             return self.outer.get(key)
         raise MalSymbolNotFoundError(key)
     
+    def try_get(self, key:str) -> Optional[MalToken]:
+        if key in self.data:
+            return self.data[key]
+        if self.outer:
+            return self.outer.try_get(key)
+        return None
+    
     def __str__(self):
         return f"#<env: {self.data}>"

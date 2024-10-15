@@ -15,6 +15,9 @@ class MalSymbol(MalToken):
     def str(self, _: bool = True):
         return self.value
     
+    def clone(self):
+        return MalSymbol(self.value, self.start, self.end)
+    
 class MalNumber(MalToken):
     numeric_value: int
 
@@ -76,6 +79,9 @@ class MalNumber(MalToken):
         if isinstance(value, MalNumber):
             return self.numeric_value != value.numeric_value
         return True
+    
+    def clone(self):
+        return MalNumber(self.value, self.start, self.end)
 
 
 class MalCollection(MalToken, ABC):
@@ -90,6 +96,7 @@ class MalCollection(MalToken, ABC):
         self.start_token = start_token
         self.end_token = end_token
         super().__init__(f"{self.start_token}{' '.join(str(e) for e in self.elements)}{self.end_token}", start, end)
+        self.meta:MalToken = MalNil()
 
     def __str__(self):
         return f"{self.start_token}{' '.join(str(e) for e in self.elements)}{self.end_token}"
@@ -108,9 +115,15 @@ class MalList(MalCollection):
     def __init__(self, elements: list[MalToken], start: int = -1, end: int = -1):
         super().__init__("(", ")", elements, start, end)
 
+    def clone(self):
+        return MalList([e.clone() for e in self.elements], self.start, self.end)
+
 class MalVector(MalCollection):
     def __init__(self, elements: list[MalToken], start: int, end: int):
         super().__init__("[", "]", elements, start, end)
+
+    def clone(self):
+        return MalVector([e.clone() for e in self.elements], self.start, self.end)
 
 class MalHashMap(MalToken):
     data: dict[MalToken, MalToken]
@@ -131,6 +144,7 @@ class MalHashMap(MalToken):
         values = elements[1::2]
         self.data = dict(zip(keys, values))
         self.size = len(self.data)
+        self.meta:MalToken = MalNil()
 
     def __str__(self):
         return "{" + " ".join(f"{k} {v}" for k, v in self.data.items()) + "}"
@@ -169,6 +183,9 @@ class MalBoolean(MalToken):
         if isinstance(other, MalBoolean):
             return self.value == other.value
         return False
+    
+    def clone(self):
+        return MalBoolean(self.boolean_value, self.start, self.end)
 
 class MalNil(MalToken):
     def __init__(self, value: str = "nil", start: int = -1, end: int = -1):
@@ -181,6 +198,9 @@ class MalNil(MalToken):
         if isinstance(other, MalNil):
             return True
         return False
+    
+    def clone(_):
+        return MalNil()
     
 class MalString(MalToken):
     def __str__(self, print_readably: bool = True):
@@ -198,6 +218,9 @@ class MalString(MalToken):
     def __hash__(self) -> int:
         return self.value.__hash__()
     
+    def clone(self):
+        return MalString(self.value, self.start, self.end)
+    
 class MalKeyword(MalToken):
     def __str__(self):
         return f":{self.value}"
@@ -213,11 +236,14 @@ class MalKeyword(MalToken):
     def __hash__(self) -> int:
         return self.value.__hash__()
     
+    def clone(self):
+        return MalKeyword(self.value, self.start, self.end)
+    
 class MalAtom(MalToken):
     value: MalToken
 
     def __init__(self, value: MalToken, start: int = -1, end: int = -1):
-        super().__init__(value.value, start, end)
+        super().__init__("atom", start, end)
         self.value = value
 
     def str(self, print_readably: bool = False):
@@ -242,6 +268,9 @@ class MalAtom(MalToken):
         self.value = function(self.value, *args)
         return self.value
     
+    def clone(self):
+        return MalAtom(self.value.clone(), self.start, self.end)
+    
 class MalExceptionWrapper(MalToken):
     def __init__(self, exception: Exception, start: int = -1, end: int = -1):
         super().__init__(str(exception), start, end)
@@ -249,3 +278,6 @@ class MalExceptionWrapper(MalToken):
 
     def str(self, print_readably: bool = False):
         return f"\"{self.exception}\""
+    
+    def clone(self):
+        return MalExceptionWrapper(self.exception, self.start, self.end)

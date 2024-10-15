@@ -1,9 +1,11 @@
+import time
 from mal_token import MalToken
 from mal_types import MalAtom, MalBoolean, MalCollection, MalHashMap, MalKeyword, MalList, MalNil, MalNumber, MalString, MalSymbol, MalVector
 from mal_function import MalFunction, MalNativeFunction
 from printer import pr_str
 from reader import read_form, read_str
 from mal_error import MalSyntaxError, MalTokenException
+from mal_readline import input_
 
 def prn(print_readable: bool, tokens: list[MalToken]) -> MalNil:
     if tokens:
@@ -53,6 +55,39 @@ def dissoc(map:MalHashMap, *elements:MalToken) -> MalHashMap:
     for elt in [*elements]:
         new_map.data.pop(elt, None)
     return new_map
+
+def conj(collection:MalCollection, elements:list[MalToken]) -> MalCollection:
+    if isinstance(collection, MalList):
+        return MalList([*elements.__reversed__(), *collection.elements], collection.start, collection.end)
+    if isinstance(collection, MalVector):
+        return MalVector([*collection.elements, *elements], collection.start, collection.end)
+    raise MalSyntaxError(f"Cannot conj to {type(collection)}", collection.start)
+
+def seq(form: MalToken) -> MalToken:
+    match form:
+        case MalList(_, _, _) as l:
+            return l if l.size > 0 else MalNil()
+        case MalVector(_, _, _) as v:
+            return MalList(v.elements) if v.size > 0 else MalNil()
+        case MalString(value, _, _):
+            return MalList([MalString(c) for c in value]) if len(value) > 0 else MalNil()
+        case MalNil() as n: 
+            return n
+    raise MalSyntaxError(f"Cannot convert {type(form)} to a sequence", form.start)
+
+def meta(form: MalFunction | MalNativeFunction | MalList | MalVector | MalHashMap) -> MalToken:
+    return form.meta
+
+def with_meta(form: MalFunction | MalNativeFunction | MalList | MalVector | MalHashMap, meta: MalToken) -> MalToken:
+    new_form = form.clone()
+    new_form.meta = meta
+    return new_form
+
+def readline(prompt: MalString) -> MalToken:
+    try:
+        return MalString(input_(prompt.value))
+    except EOFError:
+        return MalNil()
 
 ns = {
     '+': MalNativeFunction("+", lambda a,b: a+b),
@@ -104,4 +139,14 @@ ns = {
     'contains?': MalNativeFunction("contains?", lambda a, b: MalBoolean(b in a.data)),
     'keys': MalNativeFunction("keys", lambda a: MalList([k for k in a.data.keys()])),
     'vals': MalNativeFunction("vals", lambda a: MalList([v for v in a.data.values()])),
+    'time-ms': MalNativeFunction("time-ms", lambda: MalNumber(str(int(time.time() * 1000)))),
+    'fn?': MalNativeFunction("fn?", lambda a: MalBoolean((isinstance(a, MalFunction) and not a.is_macro) or isinstance(a, MalNativeFunction))),
+    'macro?': MalNativeFunction("macro?", lambda a: MalBoolean(isinstance(a, MalFunction) and a.is_macro)),
+    'string?': MalNativeFunction("string?", lambda a: MalBoolean(isinstance(a, MalString))),
+    'number?': MalNativeFunction("number?", lambda a: MalBoolean(isinstance(a, MalNumber))),
+    'conj': MalNativeFunction("conj", lambda a, *b: conj(a, [*b])),
+    'seq': MalNativeFunction("seq", lambda a: seq(a)),
+    'meta': MalNativeFunction("meta", lambda a: meta(a)),
+    'with-meta': MalNativeFunction("with-meta", lambda a, b: with_meta(a, b)),
+    'readline': MalNativeFunction("readline", lambda a: readline(a)),
 }

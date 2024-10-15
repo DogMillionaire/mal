@@ -8,3 +8,6 @@ class MalToken:
 
     def str(self, print_readably: bool = False) -> str:
         return self.value
+    
+    def clone(self):
+        raise NotImplementedError()

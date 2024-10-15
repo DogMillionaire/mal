@@ -148,6 +148,11 @@ def read_form(reader: Reader) -> MalToken:
         case ":":
             reader.next()
             return MalKeyword(token.value[1:], token.start, token.end)
+        case "^":
+            reader.next()
+            meta = read_form(reader)
+            form = read_form(reader)
+            return MalList([MalSymbol("with-meta"), form, meta], token.start, token.end)
         case _:
             return read_atom(reader)
 
