@@ -1,9 +1,9 @@
 from mal_token import MalToken
-from mal_types import MalAtom, MalBoolean, MalCollection, MalList, MalNil, MalNumber, MalString, MalVector
+from mal_types import MalAtom, MalBoolean, MalCollection, MalHashMap, MalKeyword, MalList, MalNil, MalNumber, MalString, MalSymbol, MalVector
 from mal_function import MalFunction, MalNativeFunction
 from printer import pr_str
 from reader import read_form, read_str
-from mal_error import MalSyntaxError
+from mal_error import MalSyntaxError, MalTokenException
 
 def prn(print_readable: bool, tokens: list[MalToken]) -> MalNil:
     if tokens:
@@ -29,6 +29,31 @@ def rest(collection:MalCollection) -> MalToken:
         return MalList([])
     return MalList(collection.elements[1:], collection.start, collection.end)
 
+def throw(token:MalToken) -> None:
+    raise MalTokenException(token)
+
+def hash_map(elements: list[MalToken]) -> MalHashMap:
+    if len(elements) % 2 != 0:
+        raise MalSyntaxError("Odd number of elements in hash-map", 0)
+    return MalHashMap(elements, -1, -1)
+
+def assoc(map:MalHashMap, *elements:MalToken) -> MalHashMap:
+    if len(elements) % 2 != 0:
+        raise MalSyntaxError("Odd number of elements in assoc", 0)
+    
+    new_map = map.clone()
+    
+    for i in range(0, len(elements), 2):
+        new_map.data[elements[i]] = elements[i+1]
+    return new_map
+
+def dissoc(map:MalHashMap, *elements:MalToken) -> MalHashMap:
+    new_map = map.clone()
+    
+    for elt in [*elements]:
+        new_map.data.pop(elt, None)
+    return new_map
+
 ns = {
     '+': MalNativeFunction("+", lambda a,b: a+b),
     '-': MalNativeFunction("-", lambda a,b: a-b),
@@ -38,11 +63,11 @@ ns = {
     'list?': MalNativeFunction("list?", lambda a: MalBoolean(isinstance(a, MalList))),
     'empty?': MalNativeFunction("empty?", lambda a: MalBoolean(len(a.elements) == 0)),
     'count': MalNativeFunction("count", lambda a: MalNumber(str(len(a.elements) if isinstance(a, MalCollection) else 0))),
-    '=': MalNativeFunction("=", lambda a,b: a == b),
-    '<': MalNativeFunction("<", lambda a,b: a < b),
-    '<=': MalNativeFunction("<=", lambda a,b: a <= b),
-    '>': MalNativeFunction(">", lambda a,b: a > b),
-    '>=': MalNativeFunction(">=", lambda a,b: a >= b),
+    '=': MalNativeFunction("=", lambda a,b: MalBoolean(a == b)),
+    '<': MalNativeFunction("<", lambda a,b: MalBoolean(a < b)),
+    '<=': MalNativeFunction("<=", lambda a,b: MalBoolean(a <= b)),
+    '>': MalNativeFunction(">", lambda a,b: MalBoolean(a > b)),
+    '>=': MalNativeFunction(">=", lambda a,b: MalBoolean(a >= b)),
     'pr-str': MalNativeFunction("pr-str", lambda *a: MalString(" ".join([pr_str(e, True) for e in a]), -1, -1)),
     'str': MalNativeFunction("str", lambda *a: MalString("".join([pr_str(e, False) for e in a]), -1, -1)),
     'prn': MalNativeFunction("prn", lambda *a: prn(True, [*a])),
@@ -60,4 +85,23 @@ ns = {
     'first': MalNativeFunction("first", lambda a: first(a)),
     'rest': MalNativeFunction("rest", lambda a: rest(a)),
     'macro?': MalNativeFunction("macro?", lambda a: MalBoolean(isinstance(a, MalFunction) and a.is_macro)),
+    'throw': MalNativeFunction("throw", lambda a: throw(a)),
+    'nil?': MalNativeFunction("nil?", lambda a: MalBoolean(isinstance(a, MalNil))),
+    'true?': MalNativeFunction("true?", lambda a: MalBoolean(isinstance(a, MalBoolean) and a.boolean_value)),
+    'false?': MalNativeFunction("false?", lambda a: MalBoolean(isinstance(a, MalBoolean) and not a.boolean_value)),
+    'symbol?': MalNativeFunction("symbol?", lambda a: MalBoolean(isinstance(a, MalSymbol))),
+    'symbol': MalNativeFunction("symbol", lambda a: MalSymbol(a.value)),
+    'keyword': MalNativeFunction("keyword", lambda a: a if isinstance(a, MalKeyword) else MalKeyword(a.value)),
+    'keyword?': MalNativeFunction("keyword?", lambda a: MalBoolean(isinstance(a, MalKeyword))),
+    'vector': MalNativeFunction("vector", lambda *a: MalVector([*a], -1, -1)),
+    'vector?': MalNativeFunction("vector?", lambda a: MalBoolean(isinstance(a, MalVector))),
+    'sequential?': MalNativeFunction("sequential?", lambda a: MalBoolean(isinstance(a, MalCollection))),
+    'hash-map': MalNativeFunction("hash-map", lambda *a: hash_map([*a])),
+    'map?': MalNativeFunction("map?", lambda a: MalBoolean(isinstance(a, MalHashMap))),
+    'assoc': MalNativeFunction("assoc", lambda a, *b: assoc(a, *b)),
+    'dissoc': MalNativeFunction("dissoc", lambda a, *b: dissoc(a, *b)),
+    'get': MalNativeFunction("get", lambda a, b: MalNil() if isinstance(a, MalNil) else a.data.get(b, MalNil())),
+    'contains?': MalNativeFunction("contains?", lambda a, b: MalBoolean(b in a.data)),
+    'keys': MalNativeFunction("keys", lambda a: MalList([k for k in a.data.keys()])),
+    'vals': MalNativeFunction("vals", lambda a: MalList([v for v in a.data.values()])),
 }

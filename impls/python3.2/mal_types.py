@@ -1,4 +1,5 @@
 from abc import ABC
+from re import M
 from mal_error import MalSyntaxError
 from mal_token import MalToken
 
@@ -8,9 +9,12 @@ class MalSymbol(MalToken):
     
     def __eq__(self, other):
         if isinstance(other, MalSymbol):
-            return MalBoolean(self.value == other.value, self.start, other.end)
-        return MalBoolean(False)
+            return self.value == other.value
+        return False
 
+    def str(self, _: bool = True):
+        return self.value
+    
 class MalNumber(MalToken):
     numeric_value: int
 
@@ -45,28 +49,33 @@ class MalNumber(MalToken):
     
     def __gt__(self, other):
         if isinstance(other, MalNumber):
-            return MalBoolean(self.numeric_value > other.numeric_value, self.start, other.end)
+            return self.numeric_value > other.numeric_value
         raise MalSyntaxError(f"Cannot compare {type(other)} with a number", self.start)
     
     def __ge__(self, other):
         if isinstance(other, MalNumber):
-            return MalBoolean(self.numeric_value >= other.numeric_value, self.start, other.end)
+            return self.numeric_value >= other.numeric_value
         raise MalSyntaxError(f"Cannot compare {type(other)} with a number", self.start)
     
     def __lt__(self, other):
         if isinstance(other, MalNumber):
-            return MalBoolean(self.numeric_value < other.numeric_value, self.start, other.end)
+            return self.numeric_value < other.numeric_value
         raise MalSyntaxError(f"Cannot compare {type(other)} with a number", self.start)
     
     def __le__(self, other):
         if isinstance(other, MalNumber):
-            return MalBoolean(self.numeric_value <= other.numeric_value, self.start, other.end)
+            return self.numeric_value <= other.numeric_value
         raise MalSyntaxError(f"Cannot compare {type(other)} with a number", self.start)
     
     def __eq__(self, other):
         if isinstance(other, MalNumber):
-            return MalBoolean(self.numeric_value == other.numeric_value, self.start, other.end)
-        return MalBoolean(False)
+            return self.numeric_value == other.numeric_value
+        return False
+    
+    def __ne__(self, value: object):
+        if isinstance(value, MalNumber):
+            return self.numeric_value != value.numeric_value
+        return True
 
 
 class MalCollection(MalToken, ABC):
@@ -91,9 +100,9 @@ class MalCollection(MalToken, ABC):
     def __eq__(self, other):
         if isinstance(other, MalCollection):
             if self.size != other.size:
-                return MalBoolean(False)
-            return MalBoolean(all(a == b for a, b in zip(self.elements, other.elements)))
-        return MalBoolean(False)
+                return False
+            return all(a == b for a, b in zip(self.elements, other.elements))
+        return False
 
 class MalList(MalCollection):
     def __init__(self, elements: list[MalToken], start: int = -1, end: int = -1):
@@ -104,31 +113,47 @@ class MalVector(MalCollection):
         super().__init__("[", "]", elements, start, end)
 
 class MalHashMap(MalToken):
-    data: dict[str, MalToken]
+    data: dict[MalToken, MalToken]
     size: int
 
-    def __init__(self, elements: list[MalToken], start: int, end: int):
+    def clone(self):
+        clone = MalHashMap([], self.start, self.end)
+        clone.data = self.data.copy()
+        clone.size = self.size
+        return clone
+
+    def __init__(self, elements: list[MalToken], start: int = -1, end: int = -1):
         self.start = start
         self.end = end
         if len(elements) % 2 != 0:
             raise MalSyntaxError("Keys and values must have the same length", start)
         keys = elements[0::2]
         values = elements[1::2]
-        self.data = dict(zip(map(str, keys), values))
+        self.data = dict(zip(keys, values))
         self.size = len(self.data)
 
     def __str__(self):
         return "{" + " ".join(f"{k} {v}" for k, v in self.data.items()) + "}"
     
     def str(self, print_readably: bool = False) -> str:
-        return "{" + " ".join(f"{k} {v.str(print_readably)}" for k, v in self.data.items()) + "}"
+        return "{" + " ".join(f"{k.str(print_readably)} {v.str(print_readably)}" for k, v in self.data.items()) + "}"
 
     def __eq__(self, other):
         if isinstance(other, MalHashMap):
             if self.size != other.size:
-                return MalBoolean(False)
-            return MalBoolean(all(a == b for a, b in zip(self.data.items(), other.data.items())))
-        return MalBoolean(False)
+                return False
+            for k in self.data.keys():
+                print(f"{self.data[k]} != {other.data[k]} = {self.data[k] != other.data[k]}")
+                if k not in other.data or self.data[k] != other.data[k]:
+                    return False
+            return True
+        return False
+    
+    def get(self, key):
+        return self.data[key]
+    
+    def contains(self, key):
+        return key in self.data
 
 class MalBoolean(MalToken):
     boolean_value: bool
@@ -142,8 +167,8 @@ class MalBoolean(MalToken):
     
     def __eq__(self, other):
         if isinstance(other, MalBoolean):
-            return MalBoolean(self.value == other.value, self.start, other.end)
-        return MalBoolean(False)
+            return self.value == other.value
+        return False
 
 class MalNil(MalToken):
     def __init__(self, value: str = "nil", start: int = -1, end: int = -1):
@@ -154,8 +179,8 @@ class MalNil(MalToken):
     
     def __eq__(self, other):
         if isinstance(other, MalNil):
-            return MalBoolean(True)
-        return MalBoolean(False)
+            return True
+        return False
     
 class MalString(MalToken):
     def __str__(self, print_readably: bool = True):
@@ -167,20 +192,26 @@ class MalString(MalToken):
 
     def __eq__(self, other):
         if isinstance(other, MalString):
-            return MalBoolean(self.value == other.value, self.start, other.end)
-        return MalBoolean(False)
+            return self.value == other.value
+        return False
+    
+    def __hash__(self) -> int:
+        return self.value.__hash__()
     
 class MalKeyword(MalToken):
     def __str__(self):
         return f":{self.value}"
     
-    def str(self, _: bool):
+    def str(self, _: bool = True):
         return f":{self.value}"
     
     def __eq__(self, other):
         if isinstance(other, MalKeyword):
-            return MalBoolean(self.value == other.value, self.start, other.end)
-        return MalBoolean(False)
+            return self.value == other.value
+        return False
+    
+    def __hash__(self) -> int:
+        return self.value.__hash__()
     
 class MalAtom(MalToken):
     value: MalToken
@@ -197,8 +228,8 @@ class MalAtom(MalToken):
     
     def __eq__(self, other):
         if isinstance(other, MalAtom):
-            return MalBoolean(self.value == other.value, self.start, other.end)
-        return MalBoolean(False)
+            return self == other
+        return False
     
     def deref(self):
         return self.value
@@ -210,3 +241,11 @@ class MalAtom(MalToken):
     def swap(self, function, *args):
         self.value = function(self.value, *args)
         return self.value
+    
+class MalExceptionWrapper(MalToken):
+    def __init__(self, exception: Exception, start: int = -1, end: int = -1):
+        super().__init__(str(exception), start, end)
+        self.exception = exception
+
+    def str(self, print_readably: bool = False):
+        return f"\"{self.exception}\""

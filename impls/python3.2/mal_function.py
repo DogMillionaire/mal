@@ -16,7 +16,7 @@ class MalFunction(MalToken):
 
 class MalNativeFunction(MalToken):
     def __init__(self, name: str, func):
-        super().__init__("#<function:native:{name}>", -1, -1)
+        super().__init__(f"#<function:native:{name}>", -1, -1)
         self.func = func
         self.name = name
 
